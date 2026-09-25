@@ -15,7 +15,7 @@ import {
   fetchPlatformOrders,
   fetchPlatformStores,
 } from "../../api";
-import { type PlatformOrder, type PlatformStore } from "../../types";
+import { formatOrderNumber, type PlatformOrder, type PlatformStore } from "../../types";
 import {
   PlatformOrderDetailBody,
   onlineOrderDeliveryColumn,
@@ -95,6 +95,13 @@ function SuperOrders() {
   }
 
   const columns: DataTableColumn<PlatformOrder>[] = [
+    {
+      key: "order_id",
+      header: "Order ID",
+      sortable: true,
+      sortValue: (order) => order.sale_id ?? 0,
+      render: (order) => formatOrderNumber(order.sale_id),
+    },
     platformOrderTimeColumn(),
     platformOrderStoreColumn(),
     platformOrderCustomerColumn(),

@@ -317,6 +317,13 @@ export function formatMoney(value: number | string) {
   return `PKR ${Number(value).toFixed(2)}`;
 }
 
+/** Display the canonical sale ID used as the order number in both admin tables. */
+export function formatOrderNumber(id?: number | string | null) {
+  const value = Number(id);
+
+  return Number.isSafeInteger(value) && value > 0 ? String(value).padStart(3, "0") : "—";
+}
+
 /** Online shop order pipeline label for admin + customer UI. */
 export function onlineOrderStatusLabel(order: {
   delivery_status?: string | null;

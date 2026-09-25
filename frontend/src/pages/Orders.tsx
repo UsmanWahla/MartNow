@@ -35,6 +35,7 @@ import {
 } from "../api";
 import {
   upsertById,
+  formatOrderNumber,
   onlineOrderStatusLabel,
   orderStatusTone,
   type AdminOrder,
@@ -374,6 +375,13 @@ function Orders() {
   }
 
   const columns: DataTableColumn<Sale>[] = [
+    {
+      key: "order_id",
+      header: "Order ID",
+      sortable: true,
+      sortValue: (sale) => sale.id,
+      render: (sale) => formatOrderNumber(sale.id),
+    },
     {
       key: "product",
       header: "Items",

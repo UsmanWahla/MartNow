@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { DayPicker } from "@daypicker/react";
+import { DayPicker, type DateRange } from "@daypicker/react";
 import "@daypicker/react/style.css";
 
 interface DatePickerProps {
-  value: string;
-  onChange: (value: string) => void;
+  from: string;
+  to: string;
+  onChange: (range: { from: string; to: string }) => void;
   ariaLabel?: string;
 }
 
@@ -37,21 +38,37 @@ function formatDate(value: string): string {
     : "Select date";
 }
 
-function DatePicker({ value, onChange, ariaLabel = "Select date" }: DatePickerProps) {
+function formatRange(from: string, to: string): string {
+  if (!from) {
+    return "Select date";
+  }
+
+  return to ? `${formatDate(from)} — ${formatDate(to)}` : `${formatDate(from)} — Select end date`;
+}
+
+function DatePicker({ from, to, onChange, ariaLabel = "Select date" }: DatePickerProps) {
   const [open, setOpen] = useState(false);
+  const [draftRange, setDraftRange] = useState<DateRange>();
   const rootRef = useRef<HTMLDivElement>(null);
-  const selected = fromDateValue(value);
+  const startDate = fromDateValue(from);
+  const endDate = fromDateValue(to);
+  const appliedRange: DateRange | undefined = startDate
+    ? { from: startDate, to: endDate }
+    : undefined;
+  const selected = draftRange ?? appliedRange;
 
   useEffect(() => {
     function closeOnOutsideClick(event: MouseEvent) {
       if (!rootRef.current?.contains(event.target as Node)) {
         setOpen(false);
+        setDraftRange(undefined);
       }
     }
 
     function closeOnEscape(event: KeyboardEvent) {
       if (event.key === "Escape") {
         setOpen(false);
+        setDraftRange(undefined);
       }
     }
 
@@ -72,9 +89,18 @@ function DatePicker({ value, onChange, ariaLabel = "Select date" }: DatePickerPr
         aria-label={ariaLabel}
         aria-haspopup="dialog"
         aria-expanded={open}
-        onClick={() => setOpen((current) => !current)}
+        onClick={() => {
+          if (open) {
+            setOpen(false);
+            setDraftRange(undefined);
+            return;
+          }
+
+          setDraftRange(appliedRange);
+          setOpen(true);
+        }}
       >
-        <span className={selected ? "text-slate-800" : "text-slate-400"}>{formatDate(value)}</span>
+        <span className={from ? "text-slate-800" : "text-slate-400"}>{formatRange(from, to)}</span>
         <svg
           aria-hidden="true"
           viewBox="0 0 24 24"
@@ -101,13 +127,31 @@ function DatePicker({ value, onChange, ariaLabel = "Select date" }: DatePickerPr
           }
         >
           <DayPicker
-            mode="single"
+            mode="range"
             selected={selected}
-            defaultMonth={selected}
+            defaultMonth={selected?.from}
             showOutsideDays
-            onSelect={(nextDate) => {
-              if (nextDate) {
-                onChange(toDateValue(nextDate));
+            onSelect={(nextRange) => {
+              if (!nextRange?.from) {
+                setDraftRange(undefined);
+                return;
+              }
+
+              const hasEndDate =
+                Boolean(nextRange.to) &&
+                nextRange.to!.getTime() !== nextRange.from.getTime();
+              const pendingRange = hasEndDate
+                ? nextRange
+                : { from: nextRange.from, to: undefined };
+
+              setDraftRange(pendingRange);
+
+              if (hasEndDate && nextRange.to) {
+                onChange({
+                  from: toDateValue(nextRange.from),
+                  to: toDateValue(nextRange.to),
+                });
+                setDraftRange(undefined);
                 setOpen(false);
               }
             }}

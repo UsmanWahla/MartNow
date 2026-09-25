@@ -31,6 +31,8 @@ export interface ListQuery {
   product_id?: number;
   store_id?: number;
   date?: string;
+  date_from?: string;
+  date_to?: string;
   delivery_by?: "store" | "platform";
 }
 
@@ -42,6 +44,8 @@ function listParams(options?: ListQuery) {
       ...(options?.product_id ? { product_id: options.product_id } : {}),
       ...(options?.store_id ? { store_id: options.store_id } : {}),
       ...(options?.date ? { date: options.date } : {}),
+      ...(options?.date_from ? { date_from: options.date_from } : {}),
+      ...(options?.date_to ? { date_to: options.date_to } : {}),
       ...(options?.delivery_by ? { delivery_by: options.delivery_by } : {}),
     };
   }
@@ -51,6 +55,8 @@ function listParams(options?: ListQuery) {
     ...(options.product_id ? { product_id: options.product_id } : {}),
     ...(options.store_id ? { store_id: options.store_id } : {}),
     ...(options.date ? { date: options.date } : {}),
+    ...(options.date_from ? { date_from: options.date_from } : {}),
+    ...(options.date_to ? { date_to: options.date_to } : {}),
     ...(options.delivery_by ? { delivery_by: options.delivery_by } : {}),
     page: options.page ?? 1,
     limit: options.limit ?? 5,

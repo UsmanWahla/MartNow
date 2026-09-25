@@ -73,7 +73,7 @@ async function getSale(tenantId, saleId) {
 }
 
 async function listSales(tenantId, options = {}) {
-    const { search, limitSql, date } = parseListOptions(options);
+    const { search, limitSql, dateFrom, dateTo } = parseListOptions(options);
     const params = [tenantId];
     let where = "WHERE sales.user_id = ?";
 
@@ -92,9 +92,14 @@ async function listSales(tenantId, options = {}) {
         params.push(like(search), like(search), like(search));
     }
 
-    if (date) {
-        where += " AND DATE(sales.created_at) = ?";
-        params.push(date);
+    if (dateFrom) {
+        where += " AND DATE(sales.created_at) >= ?";
+        params.push(dateFrom);
+    }
+
+    if (dateTo) {
+        where += " AND DATE(sales.created_at) <= ?";
+        params.push(dateTo);
     }
 
     const from = `

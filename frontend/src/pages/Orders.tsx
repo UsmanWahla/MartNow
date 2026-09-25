@@ -69,7 +69,7 @@ function Orders() {
   const [onlineOrders, setOnlineOrders] = useState<AdminOrder[]>([]);
   const [viewing, setViewing] = useState<AdminOrder | null>(null);
   const [pendingCancel, setPendingCancel] = useState<AdminOrder | null>(null);
-  const [date, setDate] = useState("");
+  const [dateRange, setDateRange] = useState({ from: "", to: "" });
   const { errors, clearError, clearAll, report } = useFieldErrors();
   const {
     search,
@@ -86,12 +86,13 @@ function Orders() {
         fetchSales({
           q,
           page: nextPage,
-          date: date || undefined,
+          date_from: dateRange.from || undefined,
+          date_to: dateRange.to || undefined,
         }),
-      [date]
+      [dateRange.from, dateRange.to]
     ),
     (error) => showToast(getApiError(error, "Unable to load orders")),
-    date
+    `${dateRange.from}|${dateRange.to}`
   );
 
   useEffect(() => {
@@ -115,13 +116,13 @@ function Orders() {
     void loadLookups();
   }, [showToast]);
 
-  function applyDateFilter(value: string) {
-    setDate(value);
+  function applyDateFilter(range: { from: string; to: string }) {
+    setDateRange(range);
     setPage(1);
   }
 
   function clearDateFilter() {
-    setDate("");
+    setDateRange({ from: "", to: "" });
     setPage(1);
   }
 
@@ -553,7 +554,7 @@ function Orders() {
     </>
   );
 
-  const filtersActive = Boolean(date);
+  const filtersActive = Boolean(dateRange.from && dateRange.to);
 
   return (
     <div className="flex min-w-0 flex-col gap-4 pb-8">
@@ -565,7 +566,8 @@ function Orders() {
           <div className="min-w-11rem">
             <p className="mb-1.5 text-sm font-medium text-slate-600">Date</p>
             <DatePicker
-              value={date}
+              from={dateRange.from}
+              to={dateRange.to}
               onChange={applyDateFilter}
               ariaLabel="Filter store orders by date"
             />
@@ -584,7 +586,7 @@ function Orders() {
           rows={sales}
           columns={columns}
           rowKey={(sale) => sale.id}
-          filterKey={`${search}|${date}`}
+          filterKey={`${search}|${dateRange.from}|${dateRange.to}`}
           loading={loading}
           total={total}
           page={page}

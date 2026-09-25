@@ -31,7 +31,7 @@ function SuperOrders() {
   const [viewing, setViewing] = useState<PlatformOrder | null>(null);
   const [stores, setStores] = useState<PlatformStore[]>([]);
   const [storeId, setStoreId] = useState("");
-  const [date, setDate] = useState("");
+  const [dateRange, setDateRange] = useState({ from: "", to: "" });
   const {
     search,
     setSearch,
@@ -47,12 +47,13 @@ function SuperOrders() {
           q,
           page: nextPage,
           store_id: storeId ? Number(storeId) : undefined,
-          date: date || undefined,
+          date_from: dateRange.from || undefined,
+          date_to: dateRange.to || undefined,
         }),
-      [storeId, date]
+      [storeId, dateRange.from, dateRange.to]
     ),
     (error) => showToast(getApiError(error, "Unable to load orders")),
-    `${storeId}|${date}`
+    `${storeId}|${dateRange.from}|${dateRange.to}`
   );
 
   useEffect(() => {
@@ -73,14 +74,14 @@ function SuperOrders() {
     setPage(1);
   }
 
-  function applyDateFilter(value: string) {
-    setDate(value);
+  function applyDateFilter(range: { from: string; to: string }) {
+    setDateRange(range);
     setPage(1);
   }
 
   function clearFilters() {
     setStoreId("");
-    setDate("");
+    setDateRange({ from: "", to: "" });
     setPage(1);
   }
 
@@ -128,7 +129,7 @@ function SuperOrders() {
     },
   ];
 
-  const filtersActive = Boolean(storeId || date);
+  const filtersActive = Boolean(storeId || (dateRange.from && dateRange.to));
 
   return (
     <div className="flex min-w-0 flex-col gap-4 pb-8">
@@ -150,7 +151,8 @@ function SuperOrders() {
           <div className="min-w-11rem">
             <p className="mb-1.5 text-sm font-medium text-slate-600">Date</p>
             <DatePicker
-              value={date}
+              from={dateRange.from}
+              to={dateRange.to}
               onChange={applyDateFilter}
               ariaLabel="Filter platform orders by date"
             />
@@ -169,7 +171,7 @@ function SuperOrders() {
           rows={orders}
           columns={columns}
           rowKey={(order) => `${order.order_kind || "online"}-${order.id}`}
-          filterKey={`${search}|${storeId}|${date}`}
+          filterKey={`${search}|${storeId}|${dateRange.from}|${dateRange.to}`}
           loading={loading}
           total={total}
           page={page}

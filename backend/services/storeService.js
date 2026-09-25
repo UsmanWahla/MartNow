@@ -477,7 +477,7 @@ async function getPlatformStats(period = "month") {
     };
 }
 
-function buildOnlineOrdersWhere(search, storeId, date, deliveryBy) {
+function buildOnlineOrdersWhere(search, storeId, dateFrom, dateTo, deliveryBy) {
     const params = [];
     let where = "WHERE 1 = 1";
 
@@ -498,9 +498,14 @@ function buildOnlineOrdersWhere(search, storeId, date, deliveryBy) {
         params.push(storeId);
     }
 
-    if (date) {
-        where += " AND DATE(shop_orders.created_at) = ?";
-        params.push(date);
+    if (dateFrom) {
+        where += " AND DATE(shop_orders.created_at) >= ?";
+        params.push(dateFrom);
+    }
+
+    if (dateTo) {
+        where += " AND DATE(shop_orders.created_at) <= ?";
+        params.push(dateTo);
     }
 
     if (deliveryBy) {
@@ -511,7 +516,7 @@ function buildOnlineOrdersWhere(search, storeId, date, deliveryBy) {
     return { where, params };
 }
 
-function buildWalkInSalesWhere(search, storeId, date) {
+function buildWalkInSalesWhere(search, storeId, dateFrom, dateTo) {
     const params = [];
     let where = `
         WHERE NOT EXISTS (
@@ -541,17 +546,22 @@ function buildWalkInSalesWhere(search, storeId, date) {
         params.push(storeId);
     }
 
-    if (date) {
-        where += " AND DATE(sales.created_at) = ?";
-        params.push(date);
+    if (dateFrom) {
+        where += " AND DATE(sales.created_at) >= ?";
+        params.push(dateFrom);
+    }
+
+    if (dateTo) {
+        where += " AND DATE(sales.created_at) <= ?";
+        params.push(dateTo);
     }
 
     return { where, params };
 }
 
 async function listPlatformOrders(options = {}) {
-    const { search, limitSql, storeId, date, deliveryBy } = parseListOptions(options);
-    const onlineWhere = buildOnlineOrdersWhere(search, storeId, date, deliveryBy);
+    const { search, limitSql, storeId, dateFrom, dateTo, deliveryBy } = parseListOptions(options);
+    const onlineWhere = buildOnlineOrdersWhere(search, storeId, dateFrom, dateTo, deliveryBy);
     const onlineFrom = `
         FROM shop_orders
         INNER JOIN stores ON stores.tenant_user_id = shop_orders.user_id
@@ -600,7 +610,7 @@ async function listPlatformOrders(options = {}) {
         };
     }
 
-    const walkInWhere = buildWalkInSalesWhere(search, storeId, date);
+    const walkInWhere = buildWalkInSalesWhere(search, storeId, dateFrom, dateTo);
     const walkInFrom = `
         FROM sales
         INNER JOIN stores ON stores.tenant_user_id = sales.user_id

@@ -40,6 +40,9 @@ const emptyForm = {
   name: "",
   store_category: "",
   custom_store_type: "",
+  store_description: "",
+  business_hours: "",
+  delivery_note: "",
   address: "",
   latitude: "",
   longitude: "",
@@ -103,6 +106,9 @@ function SuperStores() {
       custom_store_type: categoryForStoreType(store.store_type) === "other" && store.store_type !== "Other"
         ? store.store_type
         : "",
+      store_description: store.store_description || "",
+      business_hours: store.business_hours || "",
+      delivery_note: store.delivery_note || "",
       address: store.address || "",
       latitude: store.latitude == null ? "" : String(store.latitude),
       longitude: store.longitude == null ? "" : String(store.longitude),
@@ -253,6 +259,16 @@ function SuperStores() {
             onChange={(custom_store_type) => patchForm({ custom_store_type }, "custom_store_type")}
           />
         ) : null}
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-slate-700">Store description</label>
+          <textarea
+            className="field-input min-h-20 resize-y"
+            value={form.store_description}
+            maxLength={500}
+            placeholder="A short introduction customers will see on the storefront"
+            onChange={(event) => patchForm({ store_description: event.target.value })}
+          />
+        </div>
       </ModalFormSection>
       <ModalFormSection title="Location" description="This helps customers and deliveries find the store.">
       <div>
@@ -266,7 +282,7 @@ function SuperStores() {
         />
         {errors.address ? <p className="field-error-text">{errors.address}</p> : null}
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2">
         <Field
           label="Latitude"
           placeholder="-90 to 90"
@@ -296,8 +312,20 @@ function SuperStores() {
           value={form.contact_phone}
           onChange={(contact_phone) => patchForm({ contact_phone })}
         />
-      </div>
-      <div>
+        </div>
+        <Field
+          label="Business hours"
+          placeholder="e.g. Mon–Sat, 10 AM–9 PM"
+          value={form.business_hours}
+          onChange={(business_hours) => patchForm({ business_hours })}
+        />
+        <Field
+          label="Delivery note"
+          placeholder="e.g. Same-day delivery in G-13"
+          value={form.delivery_note}
+          onChange={(delivery_note) => patchForm({ delivery_note })}
+        />
+        <div>
         <Field
           label="Store login username"
           placeholder="e.g. arshad"

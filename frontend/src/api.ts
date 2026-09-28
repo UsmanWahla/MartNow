@@ -13,6 +13,7 @@ import {
   type Sale,
   type ShopCart,
   type ShopOrder,
+  type ShopMeta,
   type ShopSettings,
   type StaffMember,
   type StockMovement,
@@ -501,6 +502,9 @@ export async function saveStoreProfileSettings(payload: {
   contact_phone: string;
   store_category: string;
   custom_store_type?: string;
+  store_description?: string;
+  business_hours?: string;
+  delivery_note?: string;
   logo?: File | null;
 }) {
   const form = new FormData();
@@ -512,6 +516,9 @@ export async function saveStoreProfileSettings(payload: {
   form.append("contact_phone", payload.contact_phone);
   form.append("store_category", payload.store_category);
   form.append("custom_store_type", payload.custom_store_type || "");
+  form.append("store_description", payload.store_description || "");
+  form.append("business_hours", payload.business_hours || "");
+  form.append("delivery_note", payload.delivery_note || "");
 
   if (payload.logo) {
     form.append("logo", payload.logo);
@@ -665,6 +672,9 @@ function storeForm(payload: {
   store_category: string;
   custom_store_type?: string;
   store_type?: string;
+  store_description?: string;
+  business_hours?: string;
+  delivery_note?: string;
   logo?: File | null;
 }) {
   const form = new FormData();
@@ -681,6 +691,9 @@ function storeForm(payload: {
   form.append("store_category", payload.store_category);
   form.append("custom_store_type", payload.custom_store_type || "");
   form.append("store_type", payload.store_type || "");
+  form.append("store_description", payload.store_description || "");
+  form.append("business_hours", payload.business_hours || "");
+  form.append("delivery_note", payload.delivery_note || "");
 
   if (payload.password) {
     form.append("password", payload.password);
@@ -748,14 +761,7 @@ export function productImageUrl(path?: string | null) {
 }
 
 export async function fetchShopMeta(slug: string) {
-  const response = await axios.get<{
-    shop_name: string;
-    shop_slug: string;
-    address?: string;
-    logo_path?: string | null;
-    delivery_enabled?: boolean;
-    platform_delivery_fee?: number;
-  }>(`${API_URL}/api/shop/${slug}`);
+  const response = await axios.get<ShopMeta>(`${API_URL}/api/shop/${slug}`);
   return response.data;
 }
 

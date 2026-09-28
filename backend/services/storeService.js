@@ -14,6 +14,7 @@ const { mapShop } = require("./shopCore");
 const { mapOrderMoney } = require("../utils/orderMap");
 const { periodClause, normalizePeriod } = require("./dashboardService");
 const { readStoreType, categoryForStoreType } = require("../utils/storeCategory");
+const { readStorefrontText } = require("../utils/storefront");
 
 function parseCoord(value, label, min, max) {
     if (value === "" || value == null) {
@@ -49,6 +50,9 @@ function readStoreInput(data, { requirePassword = true } = {}) {
     const commission = Math.max(0, Math.min(100, Number(data.commission_percent) || 0));
     const slugHint = String(data.shop_slug || name).trim();
     const logoPath = String(data.logo_path || "").trim() || null;
+    const storeDescription = readStorefrontText(data.store_description, "Store description", 500);
+    const businessHours = readStorefrontText(data.business_hours, "Business hours", 160);
+    const deliveryNote = readStorefrontText(data.delivery_note, "Delivery note", 250);
     let storeType;
 
     try {
@@ -100,6 +104,9 @@ function readStoreInput(data, { requirePassword = true } = {}) {
         commission,
         slugHint,
         logoPath,
+        storeDescription,
+        businessHours,
+        deliveryNote,
         storeType: storeType.storeType
     };
 }
@@ -124,6 +131,9 @@ function toStoreRow(row) {
         contact_phone: row.contact_phone || "",
         username: resolveStoreUsername(row),
         logo_path: row.logo_path || null,
+        store_description: row.store_description || "",
+        business_hours: row.business_hours || "",
+        delivery_note: row.delivery_note || "",
         delivery_enabled: Number(row.delivery_enabled) === 1,
         commission_percent: Number(row.commission_percent || 0),
         store_type: row.store_type || "Other",
@@ -243,6 +253,9 @@ async function listPublicStores() {
             stores.latitude,
             stores.longitude,
             stores.logo_path,
+            stores.store_description,
+            stores.business_hours,
+            stores.delivery_note,
             stores.delivery_enabled,
             stores.store_type,
             stores.shop_slug
@@ -260,6 +273,9 @@ async function listPublicStores() {
             latitude: row.latitude == null ? null : Number(row.latitude),
             longitude: row.longitude == null ? null : Number(row.longitude),
             logo_path: row.logo_path || null,
+            store_description: row.store_description || "",
+            business_hours: row.business_hours || "",
+            delivery_note: row.delivery_note || "",
             delivery_enabled: Number(row.delivery_enabled) === 1,
             store_type: row.store_type || "Other",
             shop_slug: row.shop_slug
@@ -291,9 +307,10 @@ async function createStore(data) {
             `
             INSERT INTO stores (
                 tenant_user_id, name, address, latitude, longitude,
-                contact_name, contact_phone, logo_path, delivery_enabled,
+                contact_name, contact_phone, logo_path, store_description, business_hours,
+                delivery_note, delivery_enabled,
                 commission_percent, store_type, shop_slug, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
             `,
             [
                 userInsert.insertId,
@@ -304,6 +321,9 @@ async function createStore(data) {
                 input.contactName,
                 input.contactPhone,
                 input.logoPath,
+                input.storeDescription,
+                input.businessHours,
+                input.deliveryNote,
                 input.deliveryEnabled,
                 input.commission,
                 input.storeType,
@@ -339,7 +359,10 @@ async function updateStore(storeId, data) {
                 (existingCategory === "other" && existing.store_type !== "Other"
                     ? existing.store_type
                     : ""),
-            logo_path: data.logo_path ?? existing.logo_path
+            logo_path: data.logo_path ?? existing.logo_path,
+            store_description: data.store_description ?? existing.store_description,
+            business_hours: data.business_hours ?? existing.business_hours,
+            delivery_note: data.delivery_note ?? existing.delivery_note
         },
         { requirePassword: false }
     );
@@ -379,6 +402,7 @@ async function updateStore(storeId, data) {
             UPDATE stores
             SET name = ?, address = ?, latitude = ?, longitude = ?,
                 contact_name = ?, contact_phone = ?, logo_path = ?,
+                store_description = ?, business_hours = ?, delivery_note = ?,
                 delivery_enabled = ?, commission_percent = ?, store_type = ?, shop_slug = ?
             WHERE id = ?
             `,
@@ -390,6 +414,9 @@ async function updateStore(storeId, data) {
                 input.contactName,
                 input.contactPhone,
                 input.logoPath || existing.logo_path,
+                input.storeDescription,
+                input.businessHours,
+                input.deliveryNote,
                 input.deliveryEnabled,
                 input.commission,
                 input.storeType,

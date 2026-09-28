@@ -5,17 +5,25 @@ import { clearAuth, getUser, isShopperUser } from "../../auth";
 import { fetchShopCart, fetchShopMeta, logoutAccount } from "../../api";
 import ShopButton from "./ShopButton";
 import ShopSearch from "./ShopSearch";
+import type { ShopMeta } from "../../types";
 
 export interface ShopOutlet {
   shopName: string;
   slug: string;
+  shopMeta: ShopMeta;
 }
+
+const emptyShopMeta: ShopMeta = {
+  shop_name: "Shop",
+  shop_slug: "",
+};
 
 function ShopLayout() {
   const { slug = "" } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
   const [shopName, setShopName] = useState("Shop");
+  const [shopMeta, setShopMeta] = useState<ShopMeta>(emptyShopMeta);
   const [missing, setMissing] = useState(false);
   const [cartCount, setCartCount] = useState(0);
   const [user, setUser] = useState(getUser);
@@ -35,6 +43,7 @@ function ShopLayout() {
       try {
         const meta = await fetchShopMeta(slug);
         setShopName(meta.shop_name);
+        setShopMeta(meta);
         setMissing(false);
       } catch {
         setMissing(true);
@@ -168,7 +177,7 @@ function ShopLayout() {
       </header>
 
       <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-3 py-4 sm:px-6 sm:py-5">
-        <Outlet context={{ shopName, slug } satisfies ShopOutlet} />
+        <Outlet context={{ shopName, slug, shopMeta } satisfies ShopOutlet} />
       </main>
     </div>
   );

@@ -411,6 +411,7 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
         const storeService = require("../services/storeService");
         const settingsService = require("../services/settingsService");
         const profileService = require("../services/profileService");
+        const shopService = require("../services/shopService");
         const shopCartService = require("../services/shopCartService");
         const stamp = Date.now();
         const created = await storeService.createStore({
@@ -459,12 +460,20 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
             contact_name: "QA Contact",
             contact_phone: "03001112222",
             store_category: "other",
-            custom_store_type: "Bakery"
+            custom_store_type: "Bakery",
+            store_description: "Fresh QA products every day",
+            business_hours: "Mon-Sat, 10 AM-9 PM",
+            delivery_note: "Same-day delivery in the test area"
         });
         assert.equal(savedSettings.settings.shop_name, "QA Bakery");
         assert.equal(savedSettings.settings.contact_name, "QA Contact");
         assert.equal(savedSettings.settings.store_type, "Bakery");
         assert.equal(savedSettings.user.name, "QA Contact");
+        assert.equal(savedSettings.settings.store_description, "Fresh QA products every day");
+
+        const shopMeta = await shopService.getShopMeta(created.store.shop_slug);
+        assert.equal(shopMeta.business_hours, "Mon-Sat, 10 AM-9 PM");
+        assert.equal(shopMeta.delivery_note, "Same-day delivery in the test area");
 
         const product = await productService.addProduct(tenantId, {
             name: "QA Mug",

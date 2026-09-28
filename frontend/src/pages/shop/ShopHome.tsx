@@ -2,13 +2,13 @@ import { useOutletContext, useParams, useSearchParams } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import ShopProductCard from "../../components/shop/ShopProductCard";
 import type { ShopOutlet } from "../../components/shop/ShopLayout";
-import { fetchShopProducts } from "../../api";
+import { fetchShopProducts, productImageUrl } from "../../api";
 import { getApiError } from "../../auth";
 import type { Product } from "../../types";
 
 function ShopHome() {
   const { slug = "" } = useParams();
-  const { shopName } = useOutletContext<ShopOutlet>();
+  const { shopName, shopMeta } = useOutletContext<ShopOutlet>();
   const [params] = useSearchParams();
   const search = params.get("q") || "";
   const [products, setProducts] = useState<Product[]>([]);
@@ -57,11 +57,42 @@ function ShopHome() {
     <div className="flex flex-col gap-4">
       <section className="overflow-hidden rounded-2xl bg-[linear-gradient(135deg,#0b1f1c_0%,#134e4a_55%,#0f766e_100%)] px-4 py-4 text-white sm:px-6 sm:py-5">
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-teal-200/80">
-          Online shop
+          {shopMeta.store_type || "Online shop"}
         </p>
         <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">{shopName}</h1>
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl bg-white/95 text-base font-semibold text-teal-800 shadow-sm sm:h-12 sm:w-12">
+              {shopMeta.logo_path ? (
+                <img
+                  src={productImageUrl(shopMeta.logo_path)}
+                  alt=""
+                  className="h-full w-full object-contain p-1"
+                />
+              ) : (
+                shopName.slice(0, 1).toUpperCase()
+              )}
+            </div>
+            <div className="min-w-0">
+              <h1 className="truncate text-xl font-semibold tracking-tight sm:text-2xl">{shopName}</h1>
+              {shopMeta.store_description ? (
+                <p className="mt-1 line-clamp-2 text-sm leading-5 text-teal-100/90">
+                  {shopMeta.store_description}
+                </p>
+              ) : null}
+            </div>
+          </div>
           <p className="text-sm text-teal-100/85">Same stock as the counter · Cash on delivery</p>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2 text-xs font-medium text-teal-50">
+          {shopMeta.address ? (
+            <span className="rounded-full bg-white/10 px-2.5 py-1">{shopMeta.address}</span>
+          ) : null}
+          {shopMeta.business_hours ? (
+            <span className="rounded-full bg-white/10 px-2.5 py-1">{shopMeta.business_hours}</span>
+          ) : null}
+          {shopMeta.delivery_note ? (
+            <span className="rounded-full bg-white/10 px-2.5 py-1">{shopMeta.delivery_note}</span>
+          ) : null}
         </div>
       </section>
 

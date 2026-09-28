@@ -134,6 +134,9 @@ export interface ShopSettings {
   contact_phone?: string;
   store_type?: string;
   logo_path?: string | null;
+  store_description?: string;
+  business_hours?: string;
+  delivery_note?: string;
   avatar_path?: string | null;
   delivery_enabled?: boolean;
   commission_percent?: number;
@@ -146,6 +149,9 @@ export interface PublicStore {
   latitude: number | null;
   longitude: number | null;
   logo_path: string | null;
+  store_description?: string;
+  business_hours?: string;
+  delivery_note?: string;
   delivery_enabled: boolean;
   store_type: string;
   shop_slug: string;
@@ -162,6 +168,21 @@ export interface PlatformStore extends PublicStore {
   orders?: number;
   revenue?: number | string;
   commission?: number | string;
+}
+
+export interface ShopMeta {
+  shop_name: string;
+  shop_slug: string;
+  address?: string;
+  logo_path?: string | null;
+  store_type?: string;
+  store_description?: string;
+  business_hours?: string;
+  delivery_note?: string;
+  delivery_enabled?: boolean;
+  platform_delivery_fee?: number;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface PlatformStats {

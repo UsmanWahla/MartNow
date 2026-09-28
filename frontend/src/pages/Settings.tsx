@@ -112,6 +112,9 @@ function Settings() {
   const [contactName, setContactName] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [storeAddress, setStoreAddress] = useState("");
+  const [storeDescription, setStoreDescription] = useState("");
+  const [businessHours, setBusinessHours] = useState("");
+  const [deliveryNote, setDeliveryNote] = useState("");
   const [logo, setLogo] = useState<File | null>(null);
   const [showStaff, setShowStaff] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<StaffMember | null>(null);
@@ -135,6 +138,9 @@ function Settings() {
         setContactName(settings.contact_name || "");
         setContactPhone(settings.contact_phone || "");
         setStoreAddress(settings.address || "");
+        setStoreDescription(settings.store_description || "");
+        setBusinessHours(settings.business_hours || "");
+        setDeliveryNote(settings.delivery_note || "");
 
         const currentUser = getUser();
         if (currentUser) {
@@ -296,6 +302,9 @@ function Settings() {
               contact_phone: contactPhone,
               store_category: storeCategory,
               custom_store_type: customStoreType,
+              store_description: storeDescription,
+              business_hours: businessHours,
+              delivery_note: deliveryNote,
               logo,
             })
           : await saveSettings({
@@ -678,6 +687,31 @@ function Settings() {
                         placeholder="Store address"
                       />
                     </SettingField>
+                    <SettingField label="Store description" hint="A short introduction shown on your customer storefront.">
+                      <textarea
+                        className="field-input min-h-20 resize-y"
+                        value={storeDescription}
+                        maxLength={500}
+                        onChange={(event) => setStoreDescription(event.target.value)}
+                        placeholder="Tell customers what makes your store special"
+                      />
+                    </SettingField>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <SettingField label="Business hours">
+                        <Field
+                          value={businessHours}
+                          onChange={setBusinessHours}
+                          placeholder="e.g. Mon–Sat, 10 AM–9 PM"
+                        />
+                      </SettingField>
+                      <SettingField label="Delivery note">
+                        <Field
+                          value={deliveryNote}
+                          onChange={setDeliveryNote}
+                          placeholder="e.g. Same-day delivery in G-13"
+                        />
+                      </SettingField>
+                    </div>
                     <SettingField label="Store logo" hint="Used on your public shop and marketplace listing.">
                       <input
                         type="file"

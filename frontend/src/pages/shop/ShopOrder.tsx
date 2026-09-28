@@ -6,6 +6,7 @@ import { getApiError } from "../../auth";
 import type { ShopOrder } from "../../types";
 import { onlineOrderStatusLabel } from "../../types";
 import type { ShopOutlet } from "../../components/shop/ShopLayout";
+import ShopOrderTimeline from "../../components/shop/ShopOrderTimeline";
 
 function ShopOrderPage() {
   const { slug = "", id = "" } = useParams();
@@ -45,6 +46,7 @@ function ShopOrderPage() {
           ? ". Payment received on delivery."
           : ". Pay cash when the parcel arrives."}
       </p>
+      <ShopOrderTimeline deliveryStatus={order.delivery_status} />
       <div className="mt-5 rounded-xl bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700">
         <p className="font-semibold">{order.customer || "Delivery"}</p>
         <p>{order.address}</p>

@@ -26,6 +26,7 @@ async function migrate() {
         "migrate-stock-note.sql",
         "migrate-platform-stores.sql",
         "migrate-store-categories.sql",
+        "migrate-storefront-branding.sql",
         "migrate-commission-ledger.sql",
         "migrate-delivery-by.sql",
         "migrate-username.sql",

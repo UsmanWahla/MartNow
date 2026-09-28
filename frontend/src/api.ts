@@ -498,6 +498,8 @@ export async function saveStoreProfileSettings(payload: {
   shop_slug: string;
   low_stock_threshold: number;
   address?: string;
+  latitude?: string;
+  longitude?: string;
   contact_name: string;
   contact_phone: string;
   store_category: string;
@@ -512,6 +514,8 @@ export async function saveStoreProfileSettings(payload: {
   form.append("shop_slug", payload.shop_slug);
   form.append("low_stock_threshold", String(payload.low_stock_threshold));
   form.append("address", payload.address || "");
+  form.append("latitude", payload.latitude || "");
+  form.append("longitude", payload.longitude || "");
   form.append("contact_name", payload.contact_name);
   form.append("contact_phone", payload.contact_phone);
   form.append("store_category", payload.store_category);
@@ -530,6 +534,28 @@ export async function saveStoreProfileSettings(payload: {
     user?: import("./auth").User;
   }>(`${API_URL}/api/settings/shop-profile`, form, { headers: authHeader() });
   return response.data;
+}
+
+export interface StoreLocationResult {
+  address: string;
+  latitude: number;
+  longitude: number;
+}
+
+export async function searchStoreLocations(query: string) {
+  const response = await axios.get<{ rows: StoreLocationResult[] }>(
+    `${API_URL}/api/locations/search`,
+    { headers: authHeader(), params: { q: query } }
+  );
+  return response.data.rows;
+}
+
+export async function reverseStoreLocation(latitude: number, longitude: number) {
+  const response = await axios.get<{ location: StoreLocationResult }>(
+    `${API_URL}/api/locations/reverse`,
+    { headers: authHeader(), params: { latitude, longitude } }
+  );
+  return response.data.location;
 }
 
 export async function savePassword(payload: {

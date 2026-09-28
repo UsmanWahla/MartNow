@@ -15,20 +15,7 @@ const { mapOrderMoney } = require("../utils/orderMap");
 const { periodClause, normalizePeriod } = require("./dashboardService");
 const { readStoreType, categoryForStoreType } = require("../utils/storeCategory");
 const { readStorefrontText } = require("../utils/storefront");
-
-function parseCoord(value, label, min, max) {
-    if (value === "" || value == null) {
-        return null;
-    }
-
-    const amount = Number(value);
-
-    if (!Number.isFinite(amount) || amount < min || amount > max) {
-        throw new ServiceError(400, `${label} must be between ${min} and ${max}`);
-    }
-
-    return amount;
-}
+const { parseLatitude, parseLongitude } = require("../utils/coordinates");
 
 function readStoreInput(data, { requirePassword = true } = {}) {
     const name = String(data.name || data.shop_name || "").trim();
@@ -39,8 +26,8 @@ function readStoreInput(data, { requirePassword = true } = {}) {
         data.username || data.login_username || data.email || data.login_email || ""
     );
     const password = String(data.password || "");
-    const latitude = parseCoord(data.latitude, "Latitude", -90, 90);
-    const longitude = parseCoord(data.longitude, "Longitude", -180, 180);
+    const latitude = parseLatitude(data.latitude);
+    const longitude = parseLongitude(data.longitude);
     const deliveryEnabled =
         data.delivery_enabled === false ||
         data.delivery_enabled === "0" ||

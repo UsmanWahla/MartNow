@@ -457,6 +457,8 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
             shop_slug: created.store.shop_slug,
             low_stock_threshold: 4,
             address: "Updated Test Street",
+            latitude: 33.6844,
+            longitude: 73.0479,
             contact_name: "QA Contact",
             contact_phone: "03001112222",
             store_category: "other",
@@ -468,12 +470,16 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
         assert.equal(savedSettings.settings.shop_name, "QA Bakery");
         assert.equal(savedSettings.settings.contact_name, "QA Contact");
         assert.equal(savedSettings.settings.store_type, "Bakery");
+        assert.equal(savedSettings.settings.latitude, 33.6844);
+        assert.equal(savedSettings.settings.longitude, 73.0479);
         assert.equal(savedSettings.user.name, "QA Contact");
         assert.equal(savedSettings.settings.store_description, "Fresh QA products every day");
 
         const shopMeta = await shopService.getShopMeta(created.store.shop_slug);
         assert.equal(shopMeta.business_hours, "Mon-Sat, 10 AM-9 PM");
         assert.equal(shopMeta.delivery_note, "Same-day delivery in the test area");
+        assert.equal(shopMeta.latitude, 33.6844);
+        assert.equal(shopMeta.longitude, 73.0479);
 
         const product = await productService.addProduct(tenantId, {
             name: "QA Mug",

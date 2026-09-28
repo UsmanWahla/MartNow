@@ -97,6 +97,22 @@ select.field-input--error:focus {
   color: #dc2626;
 }
 
+.store-location-marker {
+  background: transparent;
+  border: 0;
+}
+
+.store-location-marker span {
+  display: block;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 3px solid #fff;
+  border-radius: 9999px 9999px 9999px 0;
+  background: #0f766e;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.28);
+  transform: rotate(-45deg);
+}
+
 .shop-nav {
   display: inline-flex;
   align-items: center;

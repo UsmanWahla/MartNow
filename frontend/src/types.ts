@@ -130,6 +130,8 @@ export interface ShopSettings {
   shop_slug?: string;
   low_stock_threshold: number;
   address?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   contact_name?: string;
   contact_phone?: string;
   store_type?: string;

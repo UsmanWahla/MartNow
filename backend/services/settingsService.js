@@ -5,6 +5,7 @@ const { toPublicUser } = require("./authService");
 const { ensureShopSlug, slugify, allocateSlug } = require("../utils/slug");
 const { readStoreType, categoryForStoreType } = require("../utils/storeCategory");
 const { readStorefrontText } = require("../utils/storefront");
+const { parseLatitude, parseLongitude } = require("../utils/coordinates");
 
 async function getStoreRow(tenantId) {
     const rows = await query("SELECT * FROM stores WHERE tenant_user_id = ? LIMIT 1", [tenantId]);
@@ -32,6 +33,8 @@ async function getSettings(tenantId) {
         shop_slug: shopSlug,
         low_stock_threshold: toNumber(results[0].low_stock_threshold) || 3,
         address: store?.address || "",
+        latitude: store?.latitude == null ? null : Number(store.latitude),
+        longitude: store?.longitude == null ? null : Number(store.longitude),
         contact_name: store?.contact_name || results[0].name || "",
         contact_phone: store?.contact_phone || "",
         store_type: store?.store_type || "Other",
@@ -103,6 +106,8 @@ async function updateShopProfile(tenantId, data) {
     const contactName = String(data.contact_name ?? store.contact_name ?? "").trim();
     const contactPhone = String(data.contact_phone ?? store.contact_phone ?? "").trim();
     const address = String(data.address ?? store.address ?? "").trim();
+    const latitude = parseLatitude(data.latitude ?? store.latitude);
+    const longitude = parseLongitude(data.longitude ?? store.longitude);
     const storeDescription = readStorefrontText(
         data.store_description ?? store.store_description,
         "Store description",
@@ -161,7 +166,7 @@ async function updateShopProfile(tenantId, data) {
         await query(
             `
             UPDATE stores
-            SET name = ?, address = ?, contact_name = ?, contact_phone = ?,
+            SET name = ?, address = ?, latitude = ?, longitude = ?, contact_name = ?, contact_phone = ?,
                 logo_path = ?, store_description = ?, business_hours = ?,
                 delivery_note = ?, store_type = ?, shop_slug = ?
             WHERE tenant_user_id = ?
@@ -169,6 +174,8 @@ async function updateShopProfile(tenantId, data) {
             [
                 shopName,
                 address || null,
+                latitude,
+                longitude,
                 contactName,
                 contactPhone,
                 data.logo_path || store.logo_path || null,

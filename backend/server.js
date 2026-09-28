@@ -18,6 +18,7 @@ const handleShopRoutes = require("./routes/shop");
 const handleOrderRoutes = require("./routes/orders");
 const handleSuperRoutes = require("./routes/super");
 const handleMarketplaceRoutes = require("./routes/customer");
+const handleLocationRoutes = require("./routes/locations");
 const { handleUploads } = require("./utils/upload");
 
 const PORT = process.env.PORT || 5000;
@@ -52,6 +53,10 @@ const server = http.createServer(async (req, res) => {
         }
 
         if (await handleMarketplaceRoutes(req, res)) {
+            return;
+        }
+
+        if (await handleLocationRoutes(req, res)) {
             return;
         }
 

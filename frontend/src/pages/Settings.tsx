@@ -10,6 +10,7 @@ import ModalActions from "../components/ModalActions";
 import ConfirmModal from "../components/ConfirmModal";
 import DataTable, { type DataTableColumn } from "../components/DataTable";
 import RowMenu from "../components/RowMenu";
+import StoreLocationPicker from "../components/StoreLocationPicker";
 import {
   IconSettings,
   IconShop,
@@ -112,6 +113,8 @@ function Settings() {
   const [contactName, setContactName] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [storeAddress, setStoreAddress] = useState("");
+  const [storeLatitude, setStoreLatitude] = useState("");
+  const [storeLongitude, setStoreLongitude] = useState("");
   const [storeDescription, setStoreDescription] = useState("");
   const [businessHours, setBusinessHours] = useState("");
   const [deliveryNote, setDeliveryNote] = useState("");
@@ -138,6 +141,8 @@ function Settings() {
         setContactName(settings.contact_name || "");
         setContactPhone(settings.contact_phone || "");
         setStoreAddress(settings.address || "");
+        setStoreLatitude(settings.latitude == null ? "" : String(settings.latitude));
+        setStoreLongitude(settings.longitude == null ? "" : String(settings.longitude));
         setStoreDescription(settings.store_description || "");
         setBusinessHours(settings.business_hours || "");
         setDeliveryNote(settings.delivery_note || "");
@@ -298,6 +303,8 @@ function Settings() {
               shop_slug: shopSlug,
               low_stock_threshold: Number(lowStock),
               address: storeAddress,
+              latitude: storeLatitude,
+              longitude: storeLongitude,
               contact_name: contactName,
               contact_phone: contactPhone,
               store_category: storeCategory,
@@ -679,14 +686,18 @@ function Settings() {
                         />
                       </SettingField>
                     </div>
-                    <SettingField label="Store address">
-                      <textarea
-                        className="field-input min-h-20 resize-y"
-                        value={storeAddress}
-                        onChange={(event) => setStoreAddress(event.target.value)}
-                        placeholder="Store address"
-                      />
-                    </SettingField>
+                    <StoreLocationPicker
+                      value={{
+                        address: storeAddress,
+                        latitude: storeLatitude,
+                        longitude: storeLongitude,
+                      }}
+                      onChange={({ address, latitude, longitude }) => {
+                        setStoreAddress(address);
+                        setStoreLatitude(latitude);
+                        setStoreLongitude(longitude);
+                      }}
+                    />
                     <SettingField label="Store description" hint="A short introduction shown on your customer storefront.">
                       <textarea
                         className="field-input min-h-20 resize-y"

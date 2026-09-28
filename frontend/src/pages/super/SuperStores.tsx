@@ -13,6 +13,7 @@ import RowMenu from "../../components/RowMenu";
 import Select from "../../components/Select";
 import NoteCell from "../../components/NoteCell";
 import Money from "../../components/Money";
+import StoreLocationPicker from "../../components/StoreLocationPicker";
 import { categoryForStoreType, storeCategoryOptions } from "../../storeTypes";
 import { useToast } from "../../hooks/useToast";
 import useBusy from "../../hooks/useBusy";
@@ -31,7 +32,6 @@ import { upsertById, type PlatformStore } from "../../types";
 import {
   collectFieldErrors,
   usernameMessage,
-  fieldInputClass,
   passwordStrengthMessage,
   requiredMessage,
 } from "../../utils/formValidate";
@@ -271,31 +271,13 @@ function SuperStores() {
         </div>
       </ModalFormSection>
       <ModalFormSection title="Location" description="This helps customers and deliveries find the store.">
-      <div>
-        <label className="mb-1.5 block text-sm font-medium text-slate-700">Address</label>
-        <textarea
-          className={`${fieldInputClass(errors.address)} min-h-20 resize-y`}
-          placeholder="e.g. G-13, Islamabad"
-          value={form.address}
-          aria-invalid={Boolean(errors.address)}
-          onChange={(event) => patchForm({ address: event.target.value }, "address")}
+        <StoreLocationPicker
+          value={{ address: form.address, latitude: form.latitude, longitude: form.longitude }}
+          error={errors.address}
+          onChange={({ address, latitude, longitude }) =>
+            patchForm({ address, latitude, longitude }, "address")
+          }
         />
-        {errors.address ? <p className="field-error-text">{errors.address}</p> : null}
-      </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-        <Field
-          label="Latitude"
-          placeholder="-90 to 90"
-          value={form.latitude}
-          onChange={(latitude) => patchForm({ latitude })}
-        />
-        <Field
-          label="Longitude"
-          placeholder="-180 to 180"
-          value={form.longitude}
-          onChange={(longitude) => patchForm({ longitude })}
-        />
-      </div>
       </ModalFormSection>
       <ModalFormSection title="Store admin access" description="Credentials for the person who manages this store.">
       <div className="grid gap-3 sm:grid-cols-2">

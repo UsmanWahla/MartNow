@@ -98,11 +98,21 @@ function ShopProductCard({ slug, product, tone = 0 }: ShopProductCardProps) {
           >
             {inStock ? "In stock" : "Sold out"}
           </span>
+          {product.featured ? (
+            <span className="absolute right-2 top-2 rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-semibold text-amber-950 shadow-sm">
+              Featured
+            </span>
+          ) : null}
           <ShopGalleryDots count={images.length} active={activeImage} />
         </div>
       </Link>
       <div className="flex flex-1 flex-col px-2.5 py-2.5 sm:px-3" style={{ background: body }}>
         <Link to={productPath} className="min-w-0">
+          {product.category ? (
+            <p className="mb-1 truncate text-[10px] font-semibold uppercase tracking-wide text-teal-700/80">
+              {product.category}
+            </p>
+          ) : null}
           <h2 className="line-clamp-2 min-h-10 text-[13px] font-semibold leading-5 text-slate-900 sm:text-sm">
             {product.name}
           </h2>

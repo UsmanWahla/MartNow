@@ -37,6 +37,7 @@ function readStoreInput(data, { requirePassword = true } = {}) {
     const commission = Math.max(0, Math.min(100, Number(data.commission_percent) || 0));
     const slugHint = String(data.shop_slug || name).trim();
     const logoPath = String(data.logo_path || "").trim() || null;
+    const bannerPath = String(data.banner_path || "").trim() || null;
     const storeDescription = readStorefrontText(data.store_description, "Store description", 500);
     const businessHours = readStorefrontText(data.business_hours, "Business hours", 160);
     const deliveryNote = readStorefrontText(data.delivery_note, "Delivery note", 250);
@@ -91,6 +92,7 @@ function readStoreInput(data, { requirePassword = true } = {}) {
         commission,
         slugHint,
         logoPath,
+        bannerPath,
         storeDescription,
         businessHours,
         deliveryNote,
@@ -118,6 +120,7 @@ function toStoreRow(row) {
         contact_phone: row.contact_phone || "",
         username: resolveStoreUsername(row),
         logo_path: row.logo_path || null,
+        banner_path: row.banner_path || null,
         store_description: row.store_description || "",
         business_hours: row.business_hours || "",
         delivery_note: row.delivery_note || "",
@@ -240,6 +243,7 @@ async function listPublicStores() {
             stores.latitude,
             stores.longitude,
             stores.logo_path,
+            stores.banner_path,
             stores.store_description,
             stores.business_hours,
             stores.delivery_note,
@@ -260,6 +264,7 @@ async function listPublicStores() {
             latitude: row.latitude == null ? null : Number(row.latitude),
             longitude: row.longitude == null ? null : Number(row.longitude),
             logo_path: row.logo_path || null,
+            banner_path: row.banner_path || null,
             store_description: row.store_description || "",
             business_hours: row.business_hours || "",
             delivery_note: row.delivery_note || "",
@@ -294,10 +299,10 @@ async function createStore(data) {
             `
             INSERT INTO stores (
                 tenant_user_id, name, address, latitude, longitude,
-                contact_name, contact_phone, logo_path, store_description, business_hours,
+                contact_name, contact_phone, logo_path, banner_path, store_description, business_hours,
                 delivery_note, delivery_enabled,
                 commission_percent, store_type, shop_slug, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
             `,
             [
                 userInsert.insertId,
@@ -308,6 +313,7 @@ async function createStore(data) {
                 input.contactName,
                 input.contactPhone,
                 input.logoPath,
+                input.bannerPath,
                 input.storeDescription,
                 input.businessHours,
                 input.deliveryNote,
@@ -347,6 +353,7 @@ async function updateStore(storeId, data) {
                     ? existing.store_type
                     : ""),
             logo_path: data.logo_path ?? existing.logo_path,
+            banner_path: data.banner_path ?? existing.banner_path,
             store_description: data.store_description ?? existing.store_description,
             business_hours: data.business_hours ?? existing.business_hours,
             delivery_note: data.delivery_note ?? existing.delivery_note
@@ -388,7 +395,7 @@ async function updateStore(storeId, data) {
             `
             UPDATE stores
             SET name = ?, address = ?, latitude = ?, longitude = ?,
-                contact_name = ?, contact_phone = ?, logo_path = ?,
+                contact_name = ?, contact_phone = ?, logo_path = ?, banner_path = ?,
                 store_description = ?, business_hours = ?, delivery_note = ?,
                 delivery_enabled = ?, commission_percent = ?, store_type = ?, shop_slug = ?
             WHERE id = ?
@@ -401,6 +408,7 @@ async function updateStore(storeId, data) {
                 input.contactName,
                 input.contactPhone,
                 input.logoPath || existing.logo_path,
+                input.bannerPath || existing.banner_path,
                 input.storeDescription,
                 input.businessHours,
                 input.deliveryNote,

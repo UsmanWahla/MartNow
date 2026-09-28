@@ -119,6 +119,7 @@ function Settings() {
   const [businessHours, setBusinessHours] = useState("");
   const [deliveryNote, setDeliveryNote] = useState("");
   const [logo, setLogo] = useState<File | null>(null);
+  const [banner, setBanner] = useState<File | null>(null);
   const [showStaff, setShowStaff] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<StaffMember | null>(null);
   const { errors, clearError, clearAll, report } = useFieldErrors();
@@ -313,6 +314,7 @@ function Settings() {
               business_hours: businessHours,
               delivery_note: deliveryNote,
               logo,
+              banner,
             })
           : await saveSettings({
               shop_name: shopName,
@@ -327,6 +329,7 @@ function Settings() {
           setShopSlug(response.settings.shop_slug);
         }
         setLogo(null);
+        setBanner(null);
         showToast(response.message, "success");
       } catch (loadError) {
         showToast(getApiError(loadError, "Unable to save shop settings"));
@@ -729,6 +732,14 @@ function Settings() {
                         accept="image/jpeg,image/png,image/webp"
                         className="block w-full rounded-xl border border-dashed border-slate-300 bg-white px-3 py-2 text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-teal-50 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-teal-800 hover:file:bg-teal-100"
                         onChange={(event) => setLogo(event.target.files?.[0] || null)}
+                      />
+                    </SettingField>
+                    <SettingField label="Store cover banner" hint="Shown at the top of your customer storefront. A wide landscape image looks best.">
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="block w-full rounded-xl border border-dashed border-slate-300 bg-white px-3 py-2 text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-teal-50 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-teal-800 hover:file:bg-teal-100"
+                        onChange={(event) => setBanner(event.target.files?.[0] || null)}
                       />
                     </SettingField>
                   </>

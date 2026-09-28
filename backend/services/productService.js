@@ -3,8 +3,9 @@ const { toNumber, toMoney } = require("../utils/http");
 const { parseListOptions, like } = require("../utils/list");
 const { ServiceError } = require("../utils/errors");
 const { recordMovement, stockDirection, ensureVariants, listVariants } = require("./stockService");
+const { readProductCategory, readFeatured } = require("../utils/productCatalog");
 
-const PRODUCT_COLUMNS = "id, name, sku, price, cost_price, stock, image_path, description";
+const PRODUCT_COLUMNS = "id, name, sku, price, cost_price, stock, image_path, description, category, featured";
 
 async function getProduct(tenantId, productId) {
     const results = await query(
@@ -95,6 +96,8 @@ async function attachCatalog(products) {
 
         return {
             ...product,
+            category: product.category || null,
+            featured: Number(product.featured) === 1,
             images: allImages,
             colors: colorMap.get(product.id) || [],
             sizes: sizeMap.get(product.id) || [],
@@ -281,16 +284,18 @@ function readProduct(data) {
     const costPrice = toMoney(data.cost_price);
     const sku = String(data.sku || "").trim() || null;
     const description = String(data.description || "").trim() || null;
+    const category = readProductCategory(data.category);
+    const featured = readFeatured(data.featured);
 
     if (!productName || salePrice <= 0 || costPrice < 0) {
         throw new ServiceError(400, "Name, sale price and cost price are required");
     }
 
-    return { productName, salePrice, costPrice, sku, description };
+    return { productName, salePrice, costPrice, sku, description, category, featured };
 }
 
 async function addProduct(tenantId, data, actorId = tenantId) {
-    const { productName, salePrice, costPrice, sku, description } = readProduct(data);
+    const { productName, salePrice, costPrice, sku, description, category, featured } = readProduct(data);
     const productStock = toNumber(data.stock);
     const imagePath = String(data.image_path || "").trim() || null;
 
@@ -305,8 +310,8 @@ async function addProduct(tenantId, data, actorId = tenantId) {
 
     await withTransaction(async () => {
         const result = await query(
-            "INSERT INTO products (user_id, name, sku, price, cost_price, stock, image_path, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            [tenantId, productName, sku, salePrice, costPrice, productStock, imagePath, description]
+            "INSERT INTO products (user_id, name, sku, price, cost_price, stock, image_path, description, category, featured) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [tenantId, productName, sku, salePrice, costPrice, productStock, imagePath, description, category, featured ? 1 : 0]
         );
 
         productId = result.insertId;
@@ -347,7 +352,7 @@ async function addProduct(tenantId, data, actorId = tenantId) {
 }
 
 async function updateProduct(tenantId, productId, data) {
-    const { productName, salePrice, costPrice, sku, description } = readProduct(data);
+    const { productName, salePrice, costPrice, sku, description, category, featured } = readProduct(data);
     const imagePath = String(data.image_path || "").trim();
 
     await assertUniqueName(tenantId, productName, productId);
@@ -355,12 +360,12 @@ async function updateProduct(tenantId, productId, data) {
 
     const result = imagePath
         ? await query(
-            "UPDATE products SET name = ?, sku = ?, price = ?, cost_price = ?, description = ?, image_path = ? WHERE id = ? AND user_id = ?",
-            [productName, sku, salePrice, costPrice, description, imagePath, productId, tenantId]
+            "UPDATE products SET name = ?, sku = ?, price = ?, cost_price = ?, description = ?, category = ?, featured = ?, image_path = ? WHERE id = ? AND user_id = ?",
+            [productName, sku, salePrice, costPrice, description, category, featured ? 1 : 0, imagePath, productId, tenantId]
         )
         : await query(
-            "UPDATE products SET name = ?, sku = ?, price = ?, cost_price = ?, description = ? WHERE id = ? AND user_id = ?",
-            [productName, sku, salePrice, costPrice, description, productId, tenantId]
+            "UPDATE products SET name = ?, sku = ?, price = ?, cost_price = ?, description = ?, category = ?, featured = ? WHERE id = ? AND user_id = ?",
+            [productName, sku, salePrice, costPrice, description, category, featured ? 1 : 0, productId, tenantId]
         );
 
     if (result.affectedRows === 0) {

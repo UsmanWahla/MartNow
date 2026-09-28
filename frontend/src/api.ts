@@ -93,6 +93,8 @@ export async function createProduct(payload: {
   cost_price: number;
   stock: number;
   description?: string;
+  category?: string;
+  featured?: boolean;
   images?: File[];
   colors?: { name: string; hex: string }[];
   sizes?: string[];
@@ -105,6 +107,8 @@ export async function createProduct(payload: {
   form.append("cost_price", String(payload.cost_price));
   form.append("stock", String(payload.stock));
   form.append("description", payload.description || "");
+  form.append("category", payload.category || "");
+  form.append("featured", payload.featured ? "1" : "0");
   form.append("colors", JSON.stringify(payload.colors || []));
   form.append("sizes", JSON.stringify(payload.sizes || []));
   form.append("variants", JSON.stringify(payload.variants || []));
@@ -129,6 +133,8 @@ export async function saveProduct(
     price: number;
     cost_price: number;
     description?: string;
+    category?: string;
+    featured?: boolean;
     images?: File[];
     colors?: { name: string; hex: string }[];
     sizes?: string[];
@@ -142,6 +148,8 @@ export async function saveProduct(
   form.append("price", String(payload.price));
   form.append("cost_price", String(payload.cost_price));
   form.append("description", payload.description || "");
+  form.append("category", payload.category || "");
+  form.append("featured", payload.featured ? "1" : "0");
 
   if (payload.colors) {
     form.append("colors", JSON.stringify(payload.colors));
@@ -508,6 +516,7 @@ export async function saveStoreProfileSettings(payload: {
   business_hours?: string;
   delivery_note?: string;
   logo?: File | null;
+  banner?: File | null;
 }) {
   const form = new FormData();
   form.append("shop_name", payload.shop_name);
@@ -526,6 +535,10 @@ export async function saveStoreProfileSettings(payload: {
 
   if (payload.logo) {
     form.append("logo", payload.logo);
+  }
+
+  if (payload.banner) {
+    form.append("banner", payload.banner);
   }
 
   const response = await axios.put<{
@@ -702,6 +715,7 @@ function storeForm(payload: {
   business_hours?: string;
   delivery_note?: string;
   logo?: File | null;
+  banner?: File | null;
 }) {
   const form = new FormData();
   form.append("name", payload.name);
@@ -727,6 +741,10 @@ function storeForm(payload: {
 
   if (payload.logo) {
     form.append("logo", payload.logo);
+  }
+
+  if (payload.banner) {
+    form.append("banner", payload.banner);
   }
 
   return form;

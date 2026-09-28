@@ -39,6 +39,7 @@ async function getSettings(tenantId) {
         contact_phone: store?.contact_phone || "",
         store_type: store?.store_type || "Other",
         logo_path: store?.logo_path || null,
+        banner_path: store?.banner_path || null,
         store_description: store?.store_description || "",
         business_hours: store?.business_hours || "",
         delivery_note: store?.delivery_note || "",
@@ -167,7 +168,7 @@ async function updateShopProfile(tenantId, data) {
             `
             UPDATE stores
             SET name = ?, address = ?, latitude = ?, longitude = ?, contact_name = ?, contact_phone = ?,
-                logo_path = ?, store_description = ?, business_hours = ?,
+                logo_path = ?, banner_path = ?, store_description = ?, business_hours = ?,
                 delivery_note = ?, store_type = ?, shop_slug = ?
             WHERE tenant_user_id = ?
             `,
@@ -179,6 +180,7 @@ async function updateShopProfile(tenantId, data) {
                 contactName,
                 contactPhone,
                 data.logo_path || store.logo_path || null,
+                data.banner_path || store.banner_path || null,
                 storeDescription,
                 businessHours,
                 deliveryNote,

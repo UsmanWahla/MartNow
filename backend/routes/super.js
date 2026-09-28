@@ -174,7 +174,10 @@ async function handleSuperRoutes(req, res) {
             return true;
         }
 
-        const body = await parseStoreForm(req);
+        const body = await parseStoreForm(req, {
+            fileFields: ["logo", "image", "banner"],
+            resultFields: { banner: "banner_path" }
+        });
         sendJSON(req, res, 201, await storeService.createStore(body));
         return true;
     }
@@ -186,7 +189,10 @@ async function handleSuperRoutes(req, res) {
             return true;
         }
 
-        const body = await parseStoreForm(req);
+        const body = await parseStoreForm(req, {
+            fileFields: ["logo", "image", "banner"],
+            resultFields: { banner: "banner_path" }
+        });
         sendJSON(req, res, 200, await storeService.updateStore(storeId, body));
         return true;
     }

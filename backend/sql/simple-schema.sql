@@ -30,11 +30,15 @@ CREATE TABLE products (
     stock INT NOT NULL DEFAULT 0,
     image_path VARCHAR(255) NULL,
     description VARCHAR(500) NULL,
+    category VARCHAR(60) NULL,
+    featured TINYINT(1) NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     UNIQUE KEY uq_products_user_name (user_id, name),
     UNIQUE KEY uq_products_user_sku (user_id, sku),
-    KEY idx_products_created (created_at)
+    KEY idx_products_created (created_at),
+    KEY idx_products_user_category (user_id, category),
+    KEY idx_products_user_featured (user_id, featured, id)
 );
 
 CREATE TABLE product_images (
@@ -227,6 +231,7 @@ CREATE TABLE stores (
     contact_name VARCHAR(100) NULL,
     contact_phone VARCHAR(30) NULL,
     logo_path VARCHAR(255) NULL,
+    banner_path VARCHAR(255) NULL,
     store_description VARCHAR(500) NULL,
     business_hours VARCHAR(160) NULL,
     delivery_note VARCHAR(250) NULL,

@@ -15,6 +15,7 @@ async function getShopMeta(slug) {
         shop_slug: shop.shop_slug,
         address: shop.address || "",
         logo_path: shop.logo_path || null,
+        banner_path: shop.banner_path || null,
         store_type: shop.store_type || "Other",
         store_description: shop.store_description || "",
         business_hours: shop.business_hours || "",
@@ -39,7 +40,7 @@ async function listShopProducts(slug, options = {}) {
 
     const countRows = await query(`SELECT COUNT(*) AS n FROM products ${where}`, params);
     const rows = await query(
-        `SELECT id, name, sku, price, stock, image_path, description FROM products ${where} ORDER BY id DESC ${limitSql}`,
+        `SELECT id, name, sku, price, stock, image_path, description, category, featured FROM products ${where} ORDER BY featured DESC, id DESC ${limitSql}`,
         params
     );
 
@@ -57,7 +58,7 @@ async function getShopProduct(slug, productId) {
     const shop = await getShopBySlug(slug);
     const rows = await query(
         `
-        SELECT id, name, sku, price, stock, image_path, description
+        SELECT id, name, sku, price, stock, image_path, description, category, featured
         FROM products
         WHERE id = ? AND user_id = ?
         `,

@@ -64,6 +64,7 @@ function SuperStores() {
   const [pendingDelete, setPendingDelete] = useState<PlatformStore | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [logo, setLogo] = useState<File | null>(null);
+  const [banner, setBanner] = useState<File | null>(null);
   const { errors, clearError, clearAll, report } = useFieldErrors();
   const {
     search,
@@ -85,6 +86,7 @@ function SuperStores() {
     setEditing(null);
     setForm(emptyForm);
     setLogo(null);
+    setBanner(null);
     clearAll();
   }
 
@@ -93,6 +95,7 @@ function SuperStores() {
     setEditing(null);
     setForm(emptyForm);
     setLogo(null);
+    setBanner(null);
     setShowAdd(true);
   }
 
@@ -121,6 +124,7 @@ function SuperStores() {
       commission_percent: String(store.commission_percent ?? 0),
     });
     setLogo(null);
+    setBanner(null);
   }
 
   function payload() {
@@ -132,6 +136,7 @@ function SuperStores() {
           : storeCategoryOptions.find((option) => option.value === form.store_category)?.label || "",
       commission_percent: Number(form.commission_percent) || 0,
       logo,
+      banner,
     };
   }
 
@@ -374,6 +379,16 @@ function SuperStores() {
             onChange={(event) => setLogo(event.target.files?.[0] || null)}
           />
         </div>
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-slate-700">Store cover banner</label>
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="block w-full rounded-xl border border-dashed border-slate-300 bg-white px-3 py-2 text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-teal-50 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-teal-800 hover:file:bg-teal-100"
+            onChange={(event) => setBanner(event.target.files?.[0] || null)}
+          />
+          <p className="mt-1 text-[11px] text-slate-500">A wide image shown on the public storefront.</p>
+        </div>
       </ModalFormSection>
       <ModalActions loading={busy} onCancel={closeModals} />
     </form>
@@ -411,7 +426,10 @@ function SuperStores() {
       sortable: true,
       sortValue: (row) => row.store_type,
       render: (row) => (
-        <span className="w-fit rounded-full bg-sky-50 px-2 py-0.5 text-xs font-semibold text-sky-800">
+        <span
+          className="inline-block max-w-[7.5rem] truncate rounded-full bg-sky-50 px-2 py-0.5 align-bottom text-xs font-semibold text-sky-800"
+          title={row.store_type}
+        >
           {row.store_type}
         </span>
       ),

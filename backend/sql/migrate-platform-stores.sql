@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS stores (
     contact_name VARCHAR(100) NULL,
     contact_phone VARCHAR(30) NULL,
     logo_path VARCHAR(255) NULL,
+    banner_path VARCHAR(255) NULL,
     store_description VARCHAR(500) NULL,
     business_hours VARCHAR(160) NULL,
     delivery_note VARCHAR(250) NULL,

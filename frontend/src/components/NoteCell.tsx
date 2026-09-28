@@ -11,7 +11,7 @@ function NoteCell({ note }: NoteCellProps) {
 
   return (
     <span
-      className="inline-block max-w-11rem truncate rounded-lg bg-slate-50 px-2 py-1 text-xs leading-5 text-slate-600"
+      className="inline-block max-w-[12rem] truncate rounded-lg bg-slate-50 px-2 py-1 text-xs leading-5 text-slate-600"
       title={note || compact}
     >
       {compact}

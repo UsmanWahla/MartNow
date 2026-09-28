@@ -423,10 +423,12 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
             password: "Storepass1",
             delivery_enabled: 1,
             commission_percent: 10,
-            store_category: "pharmacy"
+            store_category: "pharmacy",
+            banner_path: "/uploads/stores/qa-banner.webp"
         });
 
         assert.equal(created.store.store_type, "Pharmacy");
+        assert.equal(created.store.banner_path, "/uploads/stores/qa-banner.webp");
 
         const typed = await storeService.updateStore(created.store.id, {
             store_category: "other",
@@ -465,7 +467,8 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
             custom_store_type: "Bakery",
             store_description: "Fresh QA products every day",
             business_hours: "Mon-Sat, 10 AM-9 PM",
-            delivery_note: "Same-day delivery in the test area"
+            delivery_note: "Same-day delivery in the test area",
+            banner_path: "/uploads/stores/qa-banner-updated.webp"
         });
         assert.equal(savedSettings.settings.shop_name, "QA Bakery");
         assert.equal(savedSettings.settings.contact_name, "QA Contact");
@@ -474,19 +477,27 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
         assert.equal(savedSettings.settings.longitude, 73.0479);
         assert.equal(savedSettings.user.name, "QA Contact");
         assert.equal(savedSettings.settings.store_description, "Fresh QA products every day");
+        assert.equal(savedSettings.settings.banner_path, "/uploads/stores/qa-banner-updated.webp");
 
         const shopMeta = await shopService.getShopMeta(created.store.shop_slug);
         assert.equal(shopMeta.business_hours, "Mon-Sat, 10 AM-9 PM");
         assert.equal(shopMeta.delivery_note, "Same-day delivery in the test area");
         assert.equal(shopMeta.latitude, 33.6844);
         assert.equal(shopMeta.longitude, 73.0479);
+        assert.equal(shopMeta.banner_path, "/uploads/stores/qa-banner-updated.webp");
 
         const product = await productService.addProduct(tenantId, {
             name: "QA Mug",
             price: 40,
             cost_price: 10,
-            stock: 5
+            stock: 5,
+            category: "Homeware",
+            featured: true
         });
+        assert.equal(product.product.category, "Homeware");
+        assert.equal(product.product.featured, true);
+        const shopProducts = await shopService.listShopProducts(created.store.shop_slug, { all: true });
+        assert.equal(shopProducts.rows.find((row) => row.id === product.product.id)?.featured, true);
         const buyer = await authService.signupCustomer({
             name: "QA Buyer",
             email: `qa.buyer.${stamp}@example.com`,

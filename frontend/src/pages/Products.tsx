@@ -38,6 +38,8 @@ const emptyForm = {
   cost: "",
   stock: "",
   description: "",
+  category: "",
+  featured: false,
 };
 
 const COLOR_PRESETS = [
@@ -238,6 +240,8 @@ function Products() {
       cost: String(product.cost_price ?? 0),
       stock: String(product.stock),
       description: product.description || "",
+      category: product.category || "",
+      featured: Boolean(product.featured),
     });
   }
 
@@ -277,6 +281,8 @@ function Products() {
           cost_price: Number(form.cost),
           stock: variants.reduce((sum, row) => sum + row.stock, 0),
           description: form.description,
+          category: form.category,
+          featured: form.featured,
           images: imageFiles,
           colors,
           sizes,
@@ -300,6 +306,8 @@ function Products() {
         price: Number(changes.price ?? product.price),
         cost_price: Number(changes.cost_price ?? product.cost_price ?? 0),
         description: product.description || "",
+        category: changes.category ?? product.category ?? "",
+        featured: changes.featured ?? product.featured ?? false,
       });
 
       setProducts((current) => upsertById(current, response.product));
@@ -328,6 +336,8 @@ function Products() {
           price: Number(form.price),
           cost_price: Number(form.cost),
           description: form.description,
+          category: form.category,
+          featured: form.featured,
           images: imageFiles,
           colors,
           sizes,
@@ -417,6 +427,34 @@ function Products() {
           onSave={(value) => void updateProduct(product, { sku: value })}
         />
       ),
+    },
+    {
+      key: "category",
+      header: "Category",
+      sortable: true,
+      sortValue: (product) => product.category || "",
+      render: (product) =>
+        product.category ? (
+          <span className="inline-flex rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-800">
+            {product.category}
+          </span>
+        ) : (
+          <span className="text-slate-400">—</span>
+        ),
+    },
+    {
+      key: "featured",
+      header: "Storefront",
+      sortable: true,
+      sortValue: (product) => (product.featured ? 1 : 0),
+      render: (product) =>
+        product.featured ? (
+          <span className="inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800">
+            Featured
+          </span>
+        ) : (
+          <span className="text-slate-400">—</span>
+        ),
     },
     {
       key: "cost",
@@ -511,6 +549,34 @@ function Products() {
         value={form.sku}
         onChange={(sku) => setForm({ ...form, sku })}
       />
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+        <label className="block text-sm font-medium text-slate-700">
+          Product category
+          <input
+            className="field-input mt-1.5"
+            list="product-category-suggestions"
+            maxLength={60}
+            placeholder="e.g. Medicines, Grocery, Shirts"
+            value={form.category}
+            onChange={(event) => setForm({ ...form, category: event.target.value })}
+          />
+        </label>
+        <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm font-semibold text-amber-900 sm:mt-6">
+          <input
+            type="checkbox"
+            checked={form.featured}
+            onChange={(event) => setForm({ ...form, featured: event.target.checked })}
+          />
+          Feature on shop
+        </label>
+      </div>
+      <datalist id="product-category-suggestions">
+        {[...new Set(products.map((product) => product.category).filter(Boolean))]
+          .sort()
+          .map((category) => (
+            <option key={category} value={category!} />
+          ))}
+      </datalist>
       <textarea
         className="field-input min-h-20"
         placeholder="Description (optional)"

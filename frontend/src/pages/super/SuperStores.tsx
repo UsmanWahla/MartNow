@@ -6,6 +6,7 @@ import PasswordInput from "../../components/PasswordInput";
 import TableToolbar from "../../components/TableToolbar";
 import Modal from "../../components/Modal";
 import ModalActions from "../../components/ModalActions";
+import ModalFormSection from "../../components/ModalFormSection";
 import ConfirmModal from "../../components/ConfirmModal";
 import DataTable, { type DataTableColumn } from "../../components/DataTable";
 import RowMenu from "../../components/RowMenu";
@@ -218,18 +219,21 @@ function SuperStores() {
   const storeForm = (
     <form
       key={editing ? `edit-store-${editing.id}` : "add-store"}
-      className="flex flex-col gap-3"
+      className="flex flex-col gap-5"
       autoComplete="off"
       onSubmit={editing ? handleEdit : handleAdd}
     >
-      <Field
-        placeholder="Store name"
-        value={form.name}
-        error={errors.name}
-        onChange={(name) => patchForm({ name }, "name")}
-      />
+      <ModalFormSection title="Store details" description="Basic information shown across the platform.">
+        <Field
+          label="Store name"
+          placeholder="e.g. Ali Trader"
+          value={form.name}
+          error={errors.name}
+          onChange={(name) => patchForm({ name }, "name")}
+        />
       <div>
         <Select
+          label="Store type"
           value={form.store_category}
           error={errors.store_category}
           onChange={(store_category) => {
@@ -254,18 +258,22 @@ function SuperStores() {
           ))}
         </Select>
       </div>
-      {form.store_category === "other" ? (
-        <Field
-          placeholder="Enter store type"
-          value={form.custom_store_type}
-          error={errors.custom_store_type}
-          onChange={(custom_store_type) => patchForm({ custom_store_type }, "custom_store_type")}
-        />
-      ) : null}
+        {form.store_category === "other" ? (
+          <Field
+            label="Custom store type"
+            placeholder="e.g. Bakery"
+            value={form.custom_store_type}
+            error={errors.custom_store_type}
+            onChange={(custom_store_type) => patchForm({ custom_store_type }, "custom_store_type")}
+          />
+        ) : null}
+      </ModalFormSection>
+      <ModalFormSection title="Location" description="This helps customers and deliveries find the store.">
       <div>
+        <label className="mb-1.5 block text-sm font-medium text-slate-700">Address</label>
         <textarea
           className={`${fieldInputClass(errors.address)} min-h-20 resize-y`}
-          placeholder="Address"
+          placeholder="e.g. G-13, Islamabad"
           value={form.address}
           aria-invalid={Boolean(errors.address)}
           onChange={(event) => patchForm({ address: event.target.value }, "address")}
@@ -274,25 +282,31 @@ function SuperStores() {
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field
-          placeholder="Latitude (-90 to 90)"
+          label="Latitude"
+          placeholder="-90 to 90"
           value={form.latitude}
           onChange={(latitude) => patchForm({ latitude })}
         />
         <Field
-          placeholder="Longitude (-180 to 180)"
+          label="Longitude"
+          placeholder="-180 to 180"
           value={form.longitude}
           onChange={(longitude) => patchForm({ longitude })}
         />
       </div>
+      </ModalFormSection>
+      <ModalFormSection title="Store admin access" description="Credentials for the person who manages this store.">
       <div className="grid gap-3 sm:grid-cols-2">
         <Field
-          placeholder="Contact name"
+          label="Contact name"
+          placeholder="e.g. Ali"
           value={form.contact_name}
           error={errors.contact_name}
           onChange={(contact_name) => patchForm({ contact_name }, "contact_name")}
         />
         <Field
-          placeholder="Contact phone"
+          label="Contact phone"
+          placeholder="e.g. 0300 0000000"
           value={form.contact_phone}
           onChange={(contact_phone) => patchForm({ contact_phone })}
         />
@@ -334,8 +348,11 @@ function SuperStores() {
           Public shop URL only. Not used for store admin login.
         </p>
       </div>
+      </ModalFormSection>
+      <ModalFormSection title="Delivery and commission" description="Choose who delivers orders and set the platform fee.">
       <div className="grid gap-3 sm:grid-cols-2">
         <Select
+          label="Delivery handling"
           value={form.delivery_enabled ? "1" : "0"}
           onChange={(value) => patchForm({ delivery_enabled: value === "1" })}
         >
@@ -343,20 +360,25 @@ function SuperStores() {
           <option value="0">No — platform delivers</option>
         </Select>
         <Field
+          label="Commission rate"
           type="number"
-          placeholder="Commission %"
+          placeholder="e.g. 2"
           min="0"
           step="0.01"
           value={form.commission_percent}
           onChange={(commission_percent) => patchForm({ commission_percent })}
         />
       </div>
-      <input
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        className="text-sm text-slate-600"
-        onChange={(event) => setLogo(event.target.files?.[0] || null)}
-      />
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-slate-700">Store logo</label>
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="block w-full rounded-xl border border-dashed border-slate-300 bg-white px-3 py-2 text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-teal-50 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-teal-800 hover:file:bg-teal-100"
+            onChange={(event) => setLogo(event.target.files?.[0] || null)}
+          />
+        </div>
+      </ModalFormSection>
       <ModalActions loading={busy} onCancel={closeModals} />
     </form>
   );

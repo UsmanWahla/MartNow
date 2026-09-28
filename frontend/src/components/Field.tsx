@@ -31,7 +31,7 @@ function Field({
 }: FieldProps) {
   return (
     <div>
-      {label ? <label className="mb-1 block font-semibold">{label}</label> : null}
+      {label ? <label className="mb-1.5 block text-sm font-medium text-slate-700">{label}</label> : null}
       <input
         className={error ? `${className} field-input--error` : className}
         type={type}

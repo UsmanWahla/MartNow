@@ -19,7 +19,7 @@ function PasswordInput({
   onChange,
   placeholder,
   disabled,
-  className = "rounded-xl border border-[#c5d5d0] px-3 py-2.5 pr-10 outline-none transition-[border-color,box-shadow] duration-150 focus:border-teal-700 focus:shadow-[0_0_0_3px_rgba(15,118,110,0.14)]",
+  className = "field-input pr-10",
   error,
   label,
   name,
@@ -30,7 +30,7 @@ function PasswordInput({
 
   return (
     <div>
-      {label ? <label className="mb-1 block font-semibold">{label}</label> : null}
+      {label ? <label className="mb-1.5 block text-sm font-medium text-slate-700">{label}</label> : null}
       <div className="relative">
         <input
           className={`w-full ${error ? `${className} field-input--error` : className}`}

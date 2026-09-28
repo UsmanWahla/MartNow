@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 interface SelectProps {
+  label?: string;
   value: string;
   onChange: (value: string) => void;
   children: ReactNode;
@@ -9,14 +10,16 @@ interface SelectProps {
 }
 
 function Select({
+  label,
   value,
   onChange,
   children,
   error,
-  className = "w-full rounded-xl border border-[#c5d5d0] px-3 py-2 outline-none transition-[border-color,box-shadow] duration-150 focus:border-teal-700 focus:shadow-[0_0_0_3px_rgba(15,118,110,0.14)]",
+  className = "field-input",
 }: SelectProps) {
   return (
     <div>
+      {label ? <label className="mb-1.5 block text-sm font-medium text-slate-700">{label}</label> : null}
       <select
         className={error ? `${className} field-input--error` : className}
         value={value}

@@ -12,11 +12,11 @@ function ModalActions({
   onCancel,
 }: ModalActionsProps) {
   return (
-    <div className="mt-4 flex items-center justify-end gap-2">
+    <div className="mt-5 flex items-center justify-end gap-2 border-t border-slate-100 pt-4">
       <button
         type="button"
         disabled={loading}
-        className="rounded-xl border border-(--hairline) px-4 py-2 text-sm font-semibold text-slate-600 transition-colors duration-150 hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+        className="min-w-24 rounded-xl border border-(--hairline) px-4 py-2.5 text-sm font-semibold text-slate-600 transition-colors duration-150 hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
         onClick={onCancel}
       >
         {cancelLabel}
@@ -24,7 +24,7 @@ function ModalActions({
       <button
         type="submit"
         disabled={loading}
-        className="rounded-xl bg-teal-700 px-4 py-2 text-sm font-semibold text-white transition-colors duration-150 hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-60"
+        className="min-w-24 rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white transition-colors duration-150 hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {loading ? "Saving..." : saveLabel}
       </button>

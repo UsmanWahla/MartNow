@@ -28,6 +28,7 @@ async function migrate() {
         "migrate-store-categories.sql",
         "migrate-storefront-branding.sql",
         "migrate-customer-storefront.sql",
+        "migrate-remove-store-banner.sql",
         "migrate-commission-ledger.sql",
         "migrate-delivery-by.sql",
         "migrate-username.sql",

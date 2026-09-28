@@ -25,6 +25,7 @@ import {
   fetchPlatformStores,
   productImageUrl,
   deletePlatformStore,
+  removePlatformStoreLogo,
   removePlatformStore,
   savePlatformStore,
 } from "../../api";
@@ -64,7 +65,7 @@ function SuperStores() {
   const [pendingDelete, setPendingDelete] = useState<PlatformStore | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [logo, setLogo] = useState<File | null>(null);
-  const [banner, setBanner] = useState<File | null>(null);
+  const [pendingLogoRemoval, setPendingLogoRemoval] = useState(false);
   const { errors, clearError, clearAll, report } = useFieldErrors();
   const {
     search,
@@ -86,7 +87,7 @@ function SuperStores() {
     setEditing(null);
     setForm(emptyForm);
     setLogo(null);
-    setBanner(null);
+    setPendingLogoRemoval(false);
     clearAll();
   }
 
@@ -95,7 +96,7 @@ function SuperStores() {
     setEditing(null);
     setForm(emptyForm);
     setLogo(null);
-    setBanner(null);
+    setPendingLogoRemoval(false);
     setShowAdd(true);
   }
 
@@ -124,7 +125,7 @@ function SuperStores() {
       commission_percent: String(store.commission_percent ?? 0),
     });
     setLogo(null);
-    setBanner(null);
+    setPendingLogoRemoval(false);
   }
 
   function payload() {
@@ -136,7 +137,6 @@ function SuperStores() {
           : storeCategoryOptions.find((option) => option.value === form.store_category)?.label || "",
       commission_percent: Number(form.commission_percent) || 0,
       logo,
-      banner,
     };
   }
 
@@ -209,6 +209,25 @@ function SuperStores() {
         showToast(response.message, "success");
       } catch (loadError) {
         showToast(getApiError(loadError, "Unable to update store"));
+      }
+    });
+  }
+
+  async function handleRemoveLogo() {
+    if (!editing) {
+      return;
+    }
+
+    await run(async () => {
+      try {
+        const response = await removePlatformStoreLogo(editing.id);
+        setStores((current) => upsertById(current, response.store));
+        setEditing(response.store);
+        setLogo(null);
+        setPendingLogoRemoval(false);
+        showToast("Store logo removed", "success");
+      } catch (loadError) {
+        showToast(getApiError(loadError, "Unable to remove store logo"));
       }
     });
   }
@@ -372,22 +391,35 @@ function SuperStores() {
       </div>
         <div>
           <label className="mb-1.5 block text-sm font-medium text-slate-700">Store logo</label>
+          {editing?.logo_path ? (
+            <div className="mb-2 flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-2">
+              <div className="flex min-w-0 items-center gap-2">
+                <img
+                  src={productImageUrl(editing.logo_path)}
+                  alt="Current store logo"
+                  className="h-10 w-10 rounded-lg bg-white object-contain p-0.5"
+                />
+                <span className="truncate text-xs font-medium text-slate-600">Current logo</span>
+              </div>
+              <button
+                type="button"
+                className="shrink-0 text-xs font-semibold text-red-600 hover:text-red-700"
+                onClick={() => {
+                  setPendingLogoRemoval(true);
+                }}
+              >
+                Remove logo
+              </button>
+            </div>
+          ) : null}
           <input
             type="file"
             accept="image/jpeg,image/png,image/webp"
             className="block w-full rounded-xl border border-dashed border-slate-300 bg-white px-3 py-2 text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-teal-50 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-teal-800 hover:file:bg-teal-100"
-            onChange={(event) => setLogo(event.target.files?.[0] || null)}
+            onChange={(event) => {
+              setLogo(event.target.files?.[0] || null);
+            }}
           />
-        </div>
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-700">Store cover banner</label>
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            className="block w-full rounded-xl border border-dashed border-slate-300 bg-white px-3 py-2 text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-teal-50 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-teal-800 hover:file:bg-teal-100"
-            onChange={(event) => setBanner(event.target.files?.[0] || null)}
-          />
-          <p className="mt-1 text-[11px] text-slate-500">A wide image shown on the public storefront.</p>
         </div>
       </ModalFormSection>
       <ModalActions loading={busy} onCancel={closeModals} />
@@ -543,6 +575,17 @@ function SuperStores() {
               }
             });
           }}
+        />
+      ) : null}
+
+      {pendingLogoRemoval && editing ? (
+        <ConfirmModal
+          title="Remove store logo"
+          message="Remove this store logo now? The store will use its default fallback until a new logo is uploaded."
+          confirmLabel="Remove logo"
+          loading={busy}
+          onCancel={() => setPendingLogoRemoval(false)}
+          onConfirm={() => void handleRemoveLogo()}
         />
       ) : null}
 

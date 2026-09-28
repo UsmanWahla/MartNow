@@ -9,6 +9,3 @@ ALTER TABLE products
 
 ALTER TABLE products
     ADD KEY idx_products_user_featured (user_id, featured, id);
-
-ALTER TABLE stores
-    ADD COLUMN banner_path VARCHAR(255) NULL AFTER logo_path;

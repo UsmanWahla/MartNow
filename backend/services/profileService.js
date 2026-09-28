@@ -94,10 +94,13 @@ async function updateAccountProfile(userId, email, data) {
     const requestedUsername = String(data.username ?? currentUsername).trim();
     const nextUsername = normalizeUsername(requestedUsername);
     const usernameChanged = nextUsername !== currentUsername;
+    const removeAvatar = data.remove_avatar === true || data.remove_avatar === 1 || data.remove_avatar === "1";
     const uploadedAvatarPath = String(data.avatar_path || "").trim();
-    const nextAvatarPath = /^\/uploads\/avatars\/[A-Za-z0-9._-]+$/.test(uploadedAvatarPath)
-        ? uploadedAvatarPath
-        : existing.avatar_path || null;
+    const nextAvatarPath = removeAvatar
+        ? null
+        : /^\/uploads\/avatars\/[A-Za-z0-9._-]+$/.test(uploadedAvatarPath)
+          ? uploadedAvatarPath
+          : existing.avatar_path || null;
 
     if (usernameChanged) {
         if (!nextUsername || !isValidUsername(nextUsername)) {

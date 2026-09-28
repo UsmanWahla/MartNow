@@ -138,7 +138,6 @@ export interface ShopSettings {
   contact_phone?: string;
   store_type?: string;
   logo_path?: string | null;
-  banner_path?: string | null;
   store_description?: string;
   business_hours?: string;
   delivery_note?: string;
@@ -154,7 +153,6 @@ export interface PublicStore {
   latitude: number | null;
   longitude: number | null;
   logo_path: string | null;
-  banner_path?: string | null;
   store_description?: string;
   business_hours?: string;
   delivery_note?: string;
@@ -181,7 +179,6 @@ export interface ShopMeta {
   shop_slug: string;
   address?: string;
   logo_path?: string | null;
-  banner_path?: string | null;
   store_type?: string;
   store_description?: string;
   business_hours?: string;

@@ -424,17 +424,21 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
             delivery_enabled: 1,
             commission_percent: 10,
             store_category: "pharmacy",
-            banner_path: "/uploads/stores/qa-banner.webp"
+            logo_path: "/uploads/stores/qa-logo.webp"
         });
 
         assert.equal(created.store.store_type, "Pharmacy");
-        assert.equal(created.store.banner_path, "/uploads/stores/qa-banner.webp");
 
         const typed = await storeService.updateStore(created.store.id, {
             store_category: "other",
             custom_store_type: "Bakery"
         });
         assert.equal(typed.store.store_type, "Bakery");
+
+        const logoRemoved = await storeService.updateStore(created.store.id, {
+            remove_logo: true
+        });
+        assert.equal(logoRemoved.store.logo_path, null);
 
         const publicStores = await storeService.listPublicStores();
         const publicStore = publicStores.rows.find((store) => store.id === created.store.id);
@@ -454,6 +458,17 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
         assert.equal(updatedProfile.user.username, `qa.owner.${stamp}`);
         assert.equal(updatedProfile.user.avatar_path, "/uploads/avatars/qa-test.webp");
 
+        const avatarRemoved = await profileService.updateAccountProfile(
+            tenantId,
+            `${created.store.username}@store.local`,
+            {
+                name: "QA Account Owner",
+                username: `qa.owner.${stamp}`,
+                remove_avatar: true
+            }
+        );
+        assert.equal(avatarRemoved.user.avatar_path, null);
+
         const savedSettings = await settingsService.updateShopProfile(tenantId, {
             shop_name: "QA Bakery",
             shop_slug: created.store.shop_slug,
@@ -468,7 +483,7 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
             store_description: "Fresh QA products every day",
             business_hours: "Mon-Sat, 10 AM-9 PM",
             delivery_note: "Same-day delivery in the test area",
-            banner_path: "/uploads/stores/qa-banner-updated.webp"
+            logo_path: "/uploads/stores/qa-settings-logo.webp"
         });
         assert.equal(savedSettings.settings.shop_name, "QA Bakery");
         assert.equal(savedSettings.settings.contact_name, "QA Contact");
@@ -477,14 +492,21 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
         assert.equal(savedSettings.settings.longitude, 73.0479);
         assert.equal(savedSettings.user.name, "QA Contact");
         assert.equal(savedSettings.settings.store_description, "Fresh QA products every day");
-        assert.equal(savedSettings.settings.banner_path, "/uploads/stores/qa-banner-updated.webp");
+        assert.equal(savedSettings.settings.logo_path, "/uploads/stores/qa-settings-logo.webp");
+
+        const settingsLogoRemoved = await settingsService.updateShopProfile(tenantId, {
+            shop_name: "QA Bakery",
+            shop_slug: created.store.shop_slug,
+            low_stock_threshold: 4,
+            remove_logo: true
+        });
+        assert.equal(settingsLogoRemoved.settings.logo_path, null);
 
         const shopMeta = await shopService.getShopMeta(created.store.shop_slug);
         assert.equal(shopMeta.business_hours, "Mon-Sat, 10 AM-9 PM");
         assert.equal(shopMeta.delivery_note, "Same-day delivery in the test area");
         assert.equal(shopMeta.latitude, 33.6844);
         assert.equal(shopMeta.longitude, 73.0479);
-        assert.equal(shopMeta.banner_path, "/uploads/stores/qa-banner-updated.webp");
 
         const product = await productService.addProduct(tenantId, {
             name: "QA Mug",

@@ -87,54 +87,50 @@ function ShopHome() {
     shopMeta.latitude != null && shopMeta.longitude != null
       ? `https://www.google.com/maps/search/?api=1&query=${shopMeta.latitude},${shopMeta.longitude}`
       : "";
-
-  return (
-    <div className="flex flex-col gap-4">
-      <section className="relative overflow-hidden rounded-2xl bg-[linear-gradient(135deg,#0b1f1c_0%,#134e4a_55%,#0f766e_100%)] px-4 py-4 text-white sm:px-6 sm:py-5">
-        {shopMeta.banner_path ? (
-          <img
-            src={productImageUrl(shopMeta.banner_path)}
-            alt=""
-            className="absolute inset-0 h-full w-full object-cover opacity-35"
-          />
-        ) : null}
-        <div className="relative">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-teal-200/80">
-            {shopMeta.store_type || "Online shop"}
-          </p>
-          <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl bg-white/95 text-base font-semibold text-teal-800 shadow-sm sm:h-12 sm:w-12">
-                {shopMeta.logo_path ? (
-                  <img
-                    src={productImageUrl(shopMeta.logo_path)}
-                    alt=""
-                    className="h-full w-full object-contain p-1"
-                  />
-                ) : (
-                  shopName.slice(0, 1).toUpperCase()
-                )}
-              </div>
-              <div className="min-w-0">
-                <h1 className="truncate text-xl font-semibold tracking-tight sm:text-2xl">{shopName}</h1>
-                {shopMeta.store_description ? (
-                  <p className="mt-1 line-clamp-2 text-sm leading-5 text-teal-100/90">
-                    {shopMeta.store_description}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-            <p className="text-sm text-teal-100/85">Counter stock and cash on delivery</p>
+  const storeIntro = (
+    <>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-teal-200/80">
+        {shopMeta.store_type || "Online shop"}
+      </p>
+      <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl bg-white/95 text-base font-semibold text-teal-800 shadow-sm sm:h-12 sm:w-12">
+            {shopMeta.logo_path ? (
+              <img
+                src={productImageUrl(shopMeta.logo_path)}
+                alt=""
+                className="h-full w-full object-contain p-1"
+              />
+            ) : (
+              shopName.slice(0, 1).toUpperCase()
+            )}
           </div>
-          <div className="mt-3 flex flex-wrap gap-2 text-xs font-medium text-teal-50">
-            {shopMeta.address ? (
-              <span className="rounded-full bg-white/10 px-2.5 py-1">{shopMeta.address}</span>
-            ) : null}
-            {shopMeta.delivery_note ? (
-              <span className="rounded-full bg-white/10 px-2.5 py-1">{shopMeta.delivery_note}</span>
+          <div className="min-w-0">
+            <h1 className="truncate text-xl font-semibold tracking-tight sm:text-2xl">{shopName}</h1>
+            {shopMeta.store_description ? (
+              <p className="mt-1 line-clamp-2 text-sm leading-5 text-teal-100/90">
+                {shopMeta.store_description}
+              </p>
             ) : null}
           </div>
         </div>
+        <p className="text-sm text-teal-100/85">Counter stock and cash on delivery</p>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2 text-xs font-medium text-teal-50">
+        {shopMeta.address ? (
+          <span className="rounded-full bg-white/10 px-2.5 py-1">{shopMeta.address}</span>
+        ) : null}
+        {shopMeta.delivery_note ? (
+          <span className="rounded-full bg-white/10 px-2.5 py-1">{shopMeta.delivery_note}</span>
+        ) : null}
+      </div>
+    </>
+  );
+
+  return (
+    <div className="flex flex-col gap-4">
+      <section className="overflow-hidden rounded-2xl bg-[linear-gradient(135deg,#0b1f1c_0%,#134e4a_55%,#0f766e_100%)] px-4 py-4 text-white sm:px-6 sm:py-5">
+        {storeIntro}
       </section>
 
       <section className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">

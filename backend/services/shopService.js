@@ -15,7 +15,6 @@ async function getShopMeta(slug) {
         shop_slug: shop.shop_slug,
         address: shop.address || "",
         logo_path: shop.logo_path || null,
-        banner_path: shop.banner_path || null,
         store_type: shop.store_type || "Other",
         store_description: shop.store_description || "",
         business_hours: shop.business_hours || "",

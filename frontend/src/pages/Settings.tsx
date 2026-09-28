@@ -26,10 +26,12 @@ import {
   fetchSettings,
   fetchStaff,
   removeStaff,
+  removeStoreProfileLogo,
   saveAccountProfile,
   savePassword,
   saveStoreProfileSettings,
   saveSettings,
+  productImageUrl,
 } from "../api";
 import { canManageStaff, getRole } from "../roles";
 import type { StaffMember } from "../types";
@@ -98,6 +100,7 @@ function Settings() {
   const [name, setName] = useState(user?.name ?? "");
   const [username, setUsername] = useState(user?.username ?? "");
   const [avatar, setAvatar] = useState<File | null>(null);
+  const [pendingAvatarRemoval, setPendingAvatarRemoval] = useState(false);
   const [usernameCurrentPassword, setUsernameCurrentPassword] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -119,7 +122,8 @@ function Settings() {
   const [businessHours, setBusinessHours] = useState("");
   const [deliveryNote, setDeliveryNote] = useState("");
   const [logo, setLogo] = useState<File | null>(null);
-  const [banner, setBanner] = useState<File | null>(null);
+  const [storeLogoPath, setStoreLogoPath] = useState<string | null>(null);
+  const [pendingLogoRemoval, setPendingLogoRemoval] = useState(false);
   const [showStaff, setShowStaff] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<StaffMember | null>(null);
   const { errors, clearError, clearAll, report } = useFieldErrors();
@@ -147,6 +151,8 @@ function Settings() {
         setStoreDescription(settings.store_description || "");
         setBusinessHours(settings.business_hours || "");
         setDeliveryNote(settings.delivery_note || "");
+        setStoreLogoPath(settings.logo_path || null);
+        setPendingLogoRemoval(false);
 
         const currentUser = getUser();
         if (currentUser) {
@@ -314,7 +320,6 @@ function Settings() {
               business_hours: businessHours,
               delivery_note: deliveryNote,
               logo,
-              banner,
             })
           : await saveSettings({
               shop_name: shopName,
@@ -328,11 +333,55 @@ function Settings() {
         if (response.settings?.shop_slug) {
           setShopSlug(response.settings.shop_slug);
         }
+        if (response.settings) {
+          setStoreLogoPath(response.settings.logo_path || null);
+        }
         setLogo(null);
-        setBanner(null);
+        setPendingLogoRemoval(false);
         showToast(response.message, "success");
       } catch (loadError) {
         showToast(getApiError(loadError, "Unable to save shop settings"));
+      }
+    });
+  }
+
+  async function handleRemoveAvatar() {
+    if (!user) {
+      return;
+    }
+
+    await run(async () => {
+      try {
+        const response = await saveAccountProfile({
+          name: user.name,
+          username: user.username,
+          remove_avatar: true,
+        });
+        saveUser(response.user);
+        setUser(response.user);
+        setAvatar(null);
+        setPendingAvatarRemoval(false);
+        showToast("Profile photo removed", "success");
+      } catch (loadError) {
+        showToast(getApiError(loadError, "Unable to remove profile photo"));
+      }
+    });
+  }
+
+  async function handleRemoveStoreLogo() {
+    await run(async () => {
+      try {
+        const response = await removeStoreProfileLogo();
+        if (response.user) {
+          saveUser({ ...getUser()!, ...response.user });
+          setUser({ ...getUser()!, ...response.user });
+        }
+        setStoreLogoPath(response.settings.logo_path || null);
+        setLogo(null);
+        setPendingLogoRemoval(false);
+        showToast("Store logo removed", "success");
+      } catch (loadError) {
+        showToast(getApiError(loadError, "Unable to remove store logo"));
       }
     });
   }
@@ -503,13 +552,31 @@ function Settings() {
                 </div>
                 <div className="space-y-4">
                   <SettingField label="Profile photo" hint="JPG, PNG, or WebP up to 2MB.">
-                    <div className="flex items-center gap-3">
-                      <Avatar user={user} />
+                    <div className="space-y-2">
+                      {user?.avatar_path ? (
+                        <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-2">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <Avatar user={user} />
+                            <span className="truncate text-xs font-medium text-slate-600">Current profile photo</span>
+                          </div>
+                          <button
+                            type="button"
+                            className="shrink-0 text-xs font-semibold text-red-600 hover:text-red-700"
+                            onClick={() => {
+                              setPendingAvatarRemoval(true);
+                            }}
+                          >
+                            Remove photo
+                          </button>
+                        </div>
+                      ) : null}
                       <input
                         type="file"
                         accept="image/jpeg,image/png,image/webp"
                         className="block w-full rounded-xl border border-dashed border-slate-300 bg-white px-3 py-2 text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-teal-50 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-teal-800 hover:file:bg-teal-100"
-                        onChange={(event) => setAvatar(event.target.files?.[0] || null)}
+                        onChange={(event) => {
+                          setAvatar(event.target.files?.[0] || null);
+                        }}
                       />
                     </div>
                   </SettingField>
@@ -727,19 +794,34 @@ function Settings() {
                       </SettingField>
                     </div>
                     <SettingField label="Store logo" hint="Used on your public shop and marketplace listing.">
+                      {storeLogoPath ? (
+                        <div className="mb-2 flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-2">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <img
+                              src={productImageUrl(storeLogoPath)}
+                              alt="Current store logo"
+                              className="h-10 w-10 rounded-lg bg-white object-contain p-0.5"
+                            />
+                            <span className="truncate text-xs font-medium text-slate-600">Current logo</span>
+                          </div>
+                          <button
+                            type="button"
+                            className="shrink-0 text-xs font-semibold text-red-600 hover:text-red-700"
+                            onClick={() => {
+                              setPendingLogoRemoval(true);
+                            }}
+                          >
+                            Remove logo
+                          </button>
+                        </div>
+                      ) : null}
                       <input
                         type="file"
                         accept="image/jpeg,image/png,image/webp"
                         className="block w-full rounded-xl border border-dashed border-slate-300 bg-white px-3 py-2 text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-teal-50 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-teal-800 hover:file:bg-teal-100"
-                        onChange={(event) => setLogo(event.target.files?.[0] || null)}
-                      />
-                    </SettingField>
-                    <SettingField label="Store cover banner" hint="Shown at the top of your customer storefront. A wide landscape image looks best.">
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp"
-                        className="block w-full rounded-xl border border-dashed border-slate-300 bg-white px-3 py-2 text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-teal-50 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-teal-800 hover:file:bg-teal-100"
-                        onChange={(event) => setBanner(event.target.files?.[0] || null)}
+                        onChange={(event) => {
+                          setLogo(event.target.files?.[0] || null);
+                        }}
                       />
                     </SettingField>
                   </>
@@ -899,6 +981,28 @@ function Settings() {
           loading={busy}
           onCancel={() => setPendingDelete(null)}
           onConfirm={() => void handleDeleteStaff(pendingDelete)}
+        />
+      ) : null}
+
+      {pendingAvatarRemoval ? (
+        <ConfirmModal
+          title="Remove profile photo"
+          message="Remove your profile photo now? Your initials will be shown instead."
+          confirmLabel="Remove photo"
+          loading={busy}
+          onCancel={() => setPendingAvatarRemoval(false)}
+          onConfirm={() => void handleRemoveAvatar()}
+        />
+      ) : null}
+
+      {pendingLogoRemoval ? (
+        <ConfirmModal
+          title="Remove store logo"
+          message="Remove this store logo now? Your store will use its default fallback until a new logo is uploaded."
+          confirmLabel="Remove logo"
+          loading={busy}
+          onCancel={() => setPendingLogoRemoval(false)}
+          onConfirm={() => void handleRemoveStoreLogo()}
         />
       ) : null}
     </div>

@@ -484,11 +484,13 @@ export async function saveAccountProfile(payload: {
   username?: string;
   current_password?: string;
   avatar?: File | null;
+  remove_avatar?: boolean;
 }) {
   const form = new FormData();
   form.append("name", payload.name);
   form.append("username", payload.username || "");
   form.append("current_password", payload.current_password || "");
+  form.append("remove_avatar", payload.remove_avatar ? "1" : "0");
 
   if (payload.avatar) {
     form.append("avatar", payload.avatar);
@@ -498,6 +500,17 @@ export async function saveAccountProfile(payload: {
     message: string;
     user: import("./auth").User;
   }>(`${API_URL}/api/profile/account`, form, { headers: authHeader() });
+  return response.data;
+}
+
+export async function removeStoreProfileLogo() {
+  const form = new FormData();
+  form.append("remove_logo", "1");
+  const response = await axios.put<{
+    message: string;
+    settings: ShopSettings;
+    user?: import("./auth").User;
+  }>(`${API_URL}/api/settings/shop-profile`, form, { headers: authHeader() });
   return response.data;
 }
 
@@ -516,7 +529,7 @@ export async function saveStoreProfileSettings(payload: {
   business_hours?: string;
   delivery_note?: string;
   logo?: File | null;
-  banner?: File | null;
+  remove_logo?: boolean;
 }) {
   const form = new FormData();
   form.append("shop_name", payload.shop_name);
@@ -532,13 +545,10 @@ export async function saveStoreProfileSettings(payload: {
   form.append("store_description", payload.store_description || "");
   form.append("business_hours", payload.business_hours || "");
   form.append("delivery_note", payload.delivery_note || "");
+  form.append("remove_logo", payload.remove_logo ? "1" : "0");
 
   if (payload.logo) {
     form.append("logo", payload.logo);
-  }
-
-  if (payload.banner) {
-    form.append("banner", payload.banner);
   }
 
   const response = await axios.put<{
@@ -715,7 +725,7 @@ function storeForm(payload: {
   business_hours?: string;
   delivery_note?: string;
   logo?: File | null;
-  banner?: File | null;
+  remove_logo?: boolean;
 }) {
   const form = new FormData();
   form.append("name", payload.name);
@@ -734,6 +744,7 @@ function storeForm(payload: {
   form.append("store_description", payload.store_description || "");
   form.append("business_hours", payload.business_hours || "");
   form.append("delivery_note", payload.delivery_note || "");
+  form.append("remove_logo", payload.remove_logo ? "1" : "0");
 
   if (payload.password) {
     form.append("password", payload.password);
@@ -741,10 +752,6 @@ function storeForm(payload: {
 
   if (payload.logo) {
     form.append("logo", payload.logo);
-  }
-
-  if (payload.banner) {
-    form.append("banner", payload.banner);
   }
 
   return form;
@@ -766,6 +773,17 @@ export async function savePlatformStore(
   const response = await axios.put<{ message: string; store: PlatformStore }>(
     `${API_URL}/api/super/stores/${id}`,
     storeForm(payload),
+    { headers: authHeader() }
+  );
+  return response.data;
+}
+
+export async function removePlatformStoreLogo(id: number) {
+  const form = new FormData();
+  form.append("remove_logo", "1");
+  const response = await axios.put<{ message: string; store: PlatformStore }>(
+    `${API_URL}/api/super/stores/${id}`,
+    form,
     { headers: authHeader() }
   );
   return response.data;

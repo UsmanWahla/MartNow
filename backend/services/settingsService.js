@@ -39,7 +39,6 @@ async function getSettings(tenantId) {
         contact_phone: store?.contact_phone || "",
         store_type: store?.store_type || "Other",
         logo_path: store?.logo_path || null,
-        banner_path: store?.banner_path || null,
         store_description: store?.store_description || "",
         business_hours: store?.business_hours || "",
         delivery_note: store?.delivery_note || "",
@@ -107,6 +106,7 @@ async function updateShopProfile(tenantId, data) {
     const contactName = String(data.contact_name ?? store.contact_name ?? "").trim();
     const contactPhone = String(data.contact_phone ?? store.contact_phone ?? "").trim();
     const address = String(data.address ?? store.address ?? "").trim();
+    const removeLogo = data.remove_logo === true || data.remove_logo === 1 || data.remove_logo === "1";
     const latitude = parseLatitude(data.latitude ?? store.latitude);
     const longitude = parseLongitude(data.longitude ?? store.longitude);
     const storeDescription = readStorefrontText(
@@ -124,7 +124,7 @@ async function updateShopProfile(tenantId, data) {
         "Delivery note",
         250
     );
-    const threshold = toNumber(data.low_stock_threshold);
+    const threshold = toNumber(data.low_stock_threshold ?? store.low_stock_threshold);
     let storeType;
 
     try {
@@ -168,7 +168,7 @@ async function updateShopProfile(tenantId, data) {
             `
             UPDATE stores
             SET name = ?, address = ?, latitude = ?, longitude = ?, contact_name = ?, contact_phone = ?,
-                logo_path = ?, banner_path = ?, store_description = ?, business_hours = ?,
+                logo_path = ?, store_description = ?, business_hours = ?,
                 delivery_note = ?, store_type = ?, shop_slug = ?
             WHERE tenant_user_id = ?
             `,
@@ -179,8 +179,7 @@ async function updateShopProfile(tenantId, data) {
                 longitude,
                 contactName,
                 contactPhone,
-                data.logo_path || store.logo_path || null,
-                data.banner_path || store.banner_path || null,
+                removeLogo ? null : data.logo_path || store.logo_path || null,
                 storeDescription,
                 businessHours,
                 deliveryNote,

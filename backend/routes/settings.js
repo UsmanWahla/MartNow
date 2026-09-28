@@ -39,10 +39,7 @@ async function handleSettingsRoutes(req, res) {
             return true;
         }
 
-        const body = await parseStoreForm(req, {
-            fileFields: ["logo", "image", "banner"],
-            resultFields: { banner: "banner_path" }
-        });
+        const body = await parseStoreForm(req);
         const result = await settingsService.updateShopProfile(auth.tenantId, body);
         sendJSON(req, res, 200, result);
         return true;

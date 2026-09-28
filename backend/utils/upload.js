@@ -174,12 +174,7 @@ function handleUploads(req, res) {
 
 function parseStoreForm(
     req,
-    {
-        fileFields = ["logo", "image"],
-        uploadFolder = "stores",
-        resultField = "logo_path",
-        resultFields = {}
-    } = {}
+    { fileFields = ["logo", "image"], uploadFolder = "stores", resultField = "logo_path" } = {}
 ) {
     const contentType = String(req.headers["content-type"] || "");
 
@@ -192,7 +187,7 @@ function parseStoreForm(
         let finished = false;
         let pendingFiles = 0;
         const fields = {};
-        const uploadedPaths = {};
+        let imagePath = "";
 
         function fail(error) {
             if (settled) {
@@ -210,14 +205,16 @@ function parseStoreForm(
 
             settled = true;
 
-            Object.assign(fields, uploadedPaths);
+            if (imagePath) {
+                fields[resultField] = imagePath;
+            }
 
             resolve(fields);
         }
 
         const busboy = Busboy({
             headers: req.headers,
-            limits: { fileSize: MAX_IMAGE_BYTES, files: fileFields.length }
+            limits: { fileSize: MAX_IMAGE_BYTES, files: 1 }
         });
 
         busboy.on("file", (name, file, info) => {
@@ -257,7 +254,7 @@ function parseStoreForm(
                     return;
                 }
 
-                uploadedPaths[resultFields[name] || resultField] = `/uploads/${uploadFolder}/${filename}`;
+                imagePath = `/uploads/${uploadFolder}/${filename}`;
                 tryDone();
             });
             out.on("error", fail);

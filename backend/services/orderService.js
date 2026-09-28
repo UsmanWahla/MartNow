@@ -4,6 +4,7 @@ const { parseListOptions, like } = require("../utils/list");
 const { ServiceError } = require("../utils/errors");
 const { mapOrderMoney } = require("../utils/orderMap");
 const { deleteSale } = require("./saleService");
+const { accrueCommissionDue, reverseCommissionDue } = require("./commissionLedgerService");
 
 async function getOrderRow(tenantId, orderId) {
     const rows = await query(
@@ -181,6 +182,10 @@ async function collectOrder(tenantId, orderId) {
         }
 
         await collectOrderPayment(tenantId, order);
+
+        if (order.delivery_status === "delivered") {
+            await accrueCommissionDue({ ...order, payment_status: "collected" });
+        }
     });
 
     return { message: "Payment collected", order: await getOrder(tenantId, orderId) };
@@ -201,6 +206,7 @@ async function updateOrderStatus(tenantId, orderId, deliveryStatus, options = {}
         }
 
         if (status === "cancelled" && order.delivery_status !== "cancelled") {
+            await reverseCommissionDue(order);
             await query(
                 "UPDATE shop_orders SET delivery_status = 'cancelled', platform_fee = 0, delivery_fee = 0 WHERE id = ? AND user_id = ?",
                 [orderId, tenantId]
@@ -233,6 +239,11 @@ async function updateOrderStatus(tenantId, orderId, deliveryStatus, options = {}
 
         if (status === "delivered") {
             await collectOrderPayment(tenantId, { ...order, delivery_status: status });
+            await accrueCommissionDue({
+                ...order,
+                delivery_status: status,
+                payment_status: "collected"
+            });
         }
     });
 

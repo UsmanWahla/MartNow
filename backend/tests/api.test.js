@@ -419,8 +419,21 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
             username: `qa.store.${stamp}`,
             password: "Storepass1",
             delivery_enabled: 1,
-            commission_percent: 10
+            commission_percent: 10,
+            store_category: "pharmacy"
         });
+
+        assert.equal(created.store.store_type, "Pharmacy");
+
+        const typed = await storeService.updateStore(created.store.id, {
+            store_category: "other",
+            custom_store_type: "Bakery"
+        });
+        assert.equal(typed.store.store_type, "Bakery");
+
+        const publicStores = await storeService.listPublicStores();
+        const publicStore = publicStores.rows.find((store) => store.id === created.store.id);
+        assert.equal(publicStore?.store_type, "Bakery");
 
         const tenantId = created.store.tenant_user_id;
         const product = await productService.addProduct(tenantId, {

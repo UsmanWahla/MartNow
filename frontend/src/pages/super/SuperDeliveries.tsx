@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import PagePanel from "../../components/PagePanel";
 import TableToolbar from "../../components/TableToolbar";
+import DatePicker from "../../components/DatePicker";
 import Modal from "../../components/Modal";
 import DataTable, { type DataTableColumn } from "../../components/DataTable";
 import RowMenu from "../../components/RowMenu";
@@ -15,19 +16,19 @@ import {
   updatePlatformDeliveryStatus,
 } from "../../api";
 import { type PlatformOrder } from "../../types";
+import { PlatformOrderDetailBody } from "../../components/super/platformOrderUi";
 import {
-  PlatformOrderDetailBody,
   platformOrderCustomerColumn,
   platformOrderStatusColumn,
   platformOrderStoreColumn,
   platformOrderTimeColumn,
-} from "../../components/super/platformOrderUi";
+} from "../../components/super/platformOrderColumns";
 
 function SuperDeliveries() {
   const { showToast } = useToast();
   const { busy, run } = useBusy();
   const [viewing, setViewing] = useState<PlatformOrder | null>(null);
-  const [date, setDate] = useState("");
+  const [dateRange, setDateRange] = useState({ from: "", to: "" });
   const {
     search,
     setSearch,
@@ -43,21 +44,22 @@ function SuperDeliveries() {
         fetchPlatformDeliveries({
           q,
           page: nextPage,
-          date: date || undefined,
+          date_from: dateRange.from || undefined,
+          date_to: dateRange.to || undefined,
         }),
-      [date]
+      [dateRange.from, dateRange.to]
     ),
     (error) => showToast(getApiError(error, "Unable to load deliveries")),
-    date
+    `${dateRange.from}|${dateRange.to}`
   );
 
-  function applyDateFilter(value: string) {
-    setDate(value);
+  function applyDateFilter(range: { from: string; to: string }) {
+    setDateRange(range);
     setPage(1);
   }
 
   function clearDateFilter() {
-    setDate("");
+    setDateRange({ from: "", to: "" });
     setPage(1);
   }
 
@@ -124,7 +126,7 @@ function SuperDeliveries() {
     },
   ];
 
-  const filtersActive = Boolean(date);
+  const filtersActive = Boolean(dateRange.from && dateRange.to);
 
   const deliveryFooter =
     viewing?.delivery_status === "dispatched" ? (
@@ -146,34 +148,37 @@ function SuperDeliveries() {
 
   return (
     <div className="flex min-w-0 flex-col gap-4 pb-8">
-      <PagePanel
-        title={<TableToolbar search={search} onSearch={setSearch} count={total} />}
-      >
-        <div className="mb-4 flex flex-wrap items-end gap-3">
-          <div className="min-w-11rem">
-            <p className="mb-1.5 text-sm font-medium text-slate-600">Date</p>
-            <input
-              type="date"
-              className="field-input"
-              value={date}
-              onChange={(event) => applyDateFilter(event.target.value)}
-            />
+      <PagePanel>
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="min-w-11rem">
+              <p className="mb-1.5 text-sm font-medium text-slate-600">Date</p>
+              <DatePicker
+                from={dateRange.from}
+                to={dateRange.to}
+                onChange={applyDateFilter}
+                ariaLabel="Filter platform deliveries by date"
+              />
+            </div>
+            {filtersActive ? (
+              <button
+                type="button"
+                className="h-42px rounded-xl px-3 text-sm font-semibold text-teal-800 transition-colors hover:bg-teal-50"
+                onClick={clearDateFilter}
+              >
+                Clear filter
+              </button>
+            ) : null}
           </div>
-          {filtersActive ? (
-            <button
-              type="button"
-              className="h-42px rounded-xl px-3 text-sm font-semibold text-teal-800 transition-colors hover:bg-teal-50"
-              onClick={clearDateFilter}
-            >
-              Clear filter
-            </button>
-          ) : null}
+          <div className="flex flex-wrap items-center gap-3">
+            <TableToolbar search={search} onSearch={setSearch} count={total} />
+          </div>
         </div>
         <DataTable
           rows={orders}
           columns={columns}
           rowKey={(order) => order.id}
-          filterKey={`${search}|${date}`}
+          filterKey={`${search}|${dateRange.from}|${dateRange.to}`}
           loading={loading}
           total={total}
           page={page}

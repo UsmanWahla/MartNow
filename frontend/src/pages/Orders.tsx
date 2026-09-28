@@ -47,7 +47,7 @@ import { collectFieldErrors, requiredMessage } from "../utils/formValidate";
 import {
   onlineOrderDeliveryColumn,
   onlineOrderSourceColumn,
-} from "../components/super/platformOrderUi";
+} from "../components/super/platformOrderColumns";
 
 const emptyLine: SaleLine = { productId: "", quantity: "1" };
 
@@ -566,29 +566,34 @@ function Orders() {
 
   return (
     <div className="flex min-w-0 flex-col gap-4 pb-8">
-      <PagePanel
-        title={<TableToolbar search={search} onSearch={setSearch} count={total} />}
-        actions={<AddButton onClick={openAdd} />}
-      >
-        <div className="mb-4 flex flex-wrap items-end gap-3">
-          <div className="min-w-11rem">
-            <p className="mb-1.5 text-sm font-medium text-slate-600">Date</p>
-            <DatePicker
-              from={dateRange.from}
-              to={dateRange.to}
-              onChange={applyDateFilter}
-              ariaLabel="Filter store orders by date"
-            />
+      <PagePanel>
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="min-w-11rem">
+              <p className="mb-1.5 text-sm font-medium text-slate-600">Date</p>
+              <DatePicker
+                from={dateRange.from}
+                to={dateRange.to}
+                onChange={applyDateFilter}
+                ariaLabel="Filter store orders by date"
+              />
+            </div>
+            {filtersActive ? (
+              <button
+                type="button"
+                className="h-42px rounded-xl px-3 text-sm font-semibold text-teal-800 transition-colors hover:bg-teal-50"
+                onClick={clearDateFilter}
+              >
+                Clear filter
+              </button>
+            ) : null}
           </div>
-          {filtersActive ? (
-            <button
-              type="button"
-              className="h-42px rounded-xl px-3 text-sm font-semibold text-teal-800 transition-colors hover:bg-teal-50"
-              onClick={clearDateFilter}
-            >
-              Clear filter
-            </button>
-          ) : null}
+          <div className="flex flex-col items-end gap-2">
+            <AddButton onClick={openAdd} />
+            <div className="flex flex-wrap items-center gap-3">
+              <TableToolbar search={search} onSearch={setSearch} count={total} />
+            </div>
+          </div>
         </div>
         <DataTable
           rows={sales}

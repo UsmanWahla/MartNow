@@ -141,19 +141,18 @@ function Suppliers() {
 
   return (
     <div>
-      <PagePanel
-        title={
-          <TableToolbar search={search} onSearch={setSearch} count={total} />
-        }
-        actions={
+      <PagePanel>
+        <div className="mb-3 flex flex-col items-end gap-2">
           <AddButton
             onClick={() => {
               setForm(emptyForm);
               setShowAdd(true);
             }}
           />
-        }
-      >
+          <div className="flex flex-wrap items-center gap-3">
+            <TableToolbar search={search} onSearch={setSearch} count={total} />
+          </div>
+        </div>
         <DataTable
           rows={suppliers}
           columns={columns}

@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import Money from "../Money";
-import type { DataTableColumn } from "../DataTable";
-import { onlineOrderStatusLabel, orderStatusTone, type PlatformOrder } from "../../types";
+import { onlineOrderStatusLabel, type PlatformOrder } from "../../types";
 
 export type OnlineOrderChannel = {
   delivery_by?: string | null;
@@ -27,25 +26,16 @@ export function OnlineOrderSourceCell({ order }: { order: OnlineOrderChannel | n
 
   if (isWalkIn(order)) {
     return (
-      <div className="flex flex-col gap-0.5">
-        <span className="w-fit rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
-          Walk-in
-        </span>
-        <span className="text-[11px] font-medium text-slate-500">In-store counter</span>
-      </div>
+      <span className="w-fit rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
+        Walk-in
+      </span>
     );
   }
 
-  const channel = resolveChannel(order);
-  const label = channel === "platform" ? "Online Platform" : "Online Store";
-
   return (
-    <div className="flex flex-col gap-0.5">
-      <span className="w-fit rounded-full bg-teal-50 px-2 py-0.5 text-xs font-semibold text-teal-800">
-        Online
-      </span>
-      <span className="text-[11px] font-medium text-slate-500">{label}</span>
-    </div>
+    <span className="w-fit rounded-full bg-teal-50 px-2 py-0.5 text-xs font-semibold text-teal-800">
+      Online
+    </span>
   );
 }
 
@@ -69,122 +59,6 @@ export function OnlineOrderDeliveryCell({ order }: { order: OnlineOrderChannel |
       Store
     </span>
   );
-}
-
-export function onlineOrderSourceColumn<T>(
-  resolve: (row: T) => OnlineOrderChannel | null | undefined
-): DataTableColumn<T> {
-  return {
-    key: "source",
-    header: "Source",
-    sortable: true,
-    sortValue: (row) => {
-      const order = resolve(row);
-
-      if (!order) {
-        return "";
-      }
-
-      if (isWalkIn(order)) {
-        return "Walk-in";
-      }
-
-      const channel = resolveChannel(order);
-
-      return channel === "platform" ? "Online Platform" : "Online Store";
-    },
-    render: (row) => <OnlineOrderSourceCell order={resolve(row)} />,
-  };
-}
-
-export function onlineOrderDeliveryColumn<T>(
-  resolve: (row: T) => OnlineOrderChannel | null | undefined
-): DataTableColumn<T> {
-  return {
-    key: "delivery",
-    header: "Delivery",
-    sortable: true,
-    sortValue: (row) => resolveChannel(resolve(row)) || "",
-    render: (row) => <OnlineOrderDeliveryCell order={resolve(row)} />,
-  };
-}
-
-export function formatPlatformOrderTime(createdAt: string) {
-  return new Date(createdAt).toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
-export function platformOrderTimeColumn(): DataTableColumn<PlatformOrder> {
-  return {
-    key: "created_at",
-    header: "Time",
-    sortable: true,
-    sortValue: (order) => order.created_at,
-    render: (order) => formatPlatformOrderTime(order.created_at),
-  };
-}
-
-export function platformOrderStoreColumn(): DataTableColumn<PlatformOrder> {
-  return {
-    key: "store",
-    header: "Store",
-    sortable: true,
-    sortValue: (order) => order.store_name,
-    render: (order) => (
-      <div className="min-w-0">
-        <p className="truncate font-medium text-slate-800">{order.store_name}</p>
-        <p className="truncate text-xs text-slate-500">{order.shop_slug}</p>
-      </div>
-    ),
-  };
-}
-
-export function platformOrderCustomerColumn(): DataTableColumn<PlatformOrder> {
-  return {
-    key: "customer",
-    header: "Customer",
-    sortable: true,
-    sortValue: (order) => order.customer || "",
-    render: (order) => (
-      <div className="min-w-0">
-        <p className="truncate text-sm">{order.customer}</p>
-        <p className="truncate text-xs text-slate-500">{order.city}</p>
-      </div>
-    ),
-  };
-}
-
-export function platformOrderStatusColumn(): DataTableColumn<PlatformOrder> {
-  return {
-    key: "status",
-    header: "Status",
-    sortable: true,
-    sortValue: (order) =>
-      order.order_kind === "walkin" ? "In-store" : onlineOrderStatusLabel(order),
-    render: (order) => {
-      if (order.order_kind === "walkin") {
-        return (
-          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
-            In-store
-          </span>
-        );
-      }
-
-      const label = onlineOrderStatusLabel(order);
-
-      return (
-        <span
-          className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${orderStatusTone(label)}`}
-        >
-          {label}
-        </span>
-      );
-    },
-  };
 }
 
 export function PlatformOrderContact({ order }: { order: PlatformOrder }) {

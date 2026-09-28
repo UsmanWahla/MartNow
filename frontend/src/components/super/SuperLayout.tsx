@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { IconDashboard, IconLogout, IconShop, IconMenu, IconTruck, IconBox } from "../icons";
+import { IconDashboard, IconLedger, IconLogout, IconShop, IconMenu, IconTruck, IconBox } from "../icons";
 import ConfirmModal from "../ConfirmModal";
 import { clearAuth, getToken, getUser, isSuperAdmin } from "../../auth";
 import { logoutAccount } from "../../api";
@@ -56,6 +56,8 @@ function SuperLayout() {
     ? "Stores"
     : location.pathname.startsWith("/super/deliveries")
       ? "Deliveries"
+      : location.pathname.startsWith("/super/commission-ledger")
+        ? "Commission ledger"
       : location.pathname.startsWith("/super/orders")
         ? "Orders"
         : "Dashboard";
@@ -81,6 +83,10 @@ function SuperLayout() {
         <NavLink to="/super/orders" className={linkClass} onClick={() => setMenuOpen(false)}>
           <IconTruck className="h-4 w-4" />
           Orders
+        </NavLink>
+        <NavLink to="/super/commission-ledger" className={linkClass} onClick={() => setMenuOpen(false)}>
+          <IconLedger className="h-4 w-4" />
+          Commission ledger
         </NavLink>
         <NavLink to="/super/deliveries" className={linkClass} onClick={() => setMenuOpen(false)}>
           <IconBox className="h-4 w-4" />

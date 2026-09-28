@@ -25,6 +25,8 @@ async function migrate() {
         "migrate-variant-stock.sql",
         "migrate-stock-note.sql",
         "migrate-platform-stores.sql",
+        "migrate-store-categories.sql",
+        "migrate-commission-ledger.sql",
         "migrate-delivery-by.sql",
         "migrate-username.sql"
     ];
@@ -56,11 +58,64 @@ async function migrate() {
         }
     }
 
+    await migrateStoreTypes();
     await backfillVariants();
     await backfillStores();
     await require("./utils/ownerUsernames").backfillOwnerUsernames();
     await seedSuperAdmin();
     console.log("Business schema is ready.");
+}
+
+async function migrateStoreTypes() {
+    const columns = await query("SHOW COLUMNS FROM stores");
+    const columnNames = new Set(columns.map((column) => column.Field));
+    const hasLegacyCategory = columnNames.has("store_category");
+    const hasLegacyCustomType = columnNames.has("custom_store_type");
+
+    if (hasLegacyCategory) {
+        await query(
+            `
+            UPDATE stores
+            SET store_type = CASE
+                WHEN store_category = 'pharmacy' THEN 'Pharmacy'
+                WHEN store_category = 'book_shop' THEN 'Book Shop'
+                WHEN store_category = 'mart' THEN 'Mart / General Store'
+                WHEN store_category = 'clothing' THEN 'Clothing / Fashion'
+                WHEN store_category = 'electronics' THEN 'Electronics'
+                WHEN store_category = 'beauty' THEN 'Cosmetics / Beauty'
+                WHEN store_category = 'food' THEN 'Food / Restaurant'
+                WHEN store_category = 'other' AND custom_store_type IS NOT NULL
+                    AND TRIM(custom_store_type) <> '' THEN custom_store_type
+                ELSE 'Other'
+            END
+            WHERE store_type IS NULL OR TRIM(store_type) = ''
+            `
+        );
+    } else {
+        await query(
+            "UPDATE stores SET store_type = 'Other' WHERE store_type IS NULL OR TRIM(store_type) = ''"
+        );
+    }
+
+    await query("ALTER TABLE stores MODIFY COLUMN store_type VARCHAR(100) NOT NULL");
+
+    const indexes = await query("SHOW INDEX FROM stores");
+
+    if (indexes.some((index) => index.Key_name === "idx_stores_category")) {
+        await query("DROP INDEX idx_stores_category ON stores");
+    }
+
+    if (hasLegacyCategory) {
+        await query("ALTER TABLE stores DROP COLUMN store_category");
+    }
+
+    if (hasLegacyCustomType) {
+        await query("ALTER TABLE stores DROP COLUMN custom_store_type");
+    }
+
+    if (!indexes.some((index) => index.Key_name === "idx_stores_type")) {
+        await query("CREATE INDEX idx_stores_type ON stores(store_type)");
+    }
 }
 
 async function backfillStores() {

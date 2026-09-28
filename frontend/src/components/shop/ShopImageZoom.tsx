@@ -30,36 +30,46 @@ function ShopImageZoom({
   onClose,
   onIndexChange,
 }: ShopImageZoomProps) {
+  if (!open || images.length === 0) {
+    return null;
+  }
+
+  return (
+    <ShopImageZoomDialog
+      key={`${index}-${images.length}`}
+      images={images}
+      index={index}
+      alt={alt}
+      onClose={onClose}
+      onIndexChange={onIndexChange}
+    />
+  );
+}
+
+function ShopImageZoomDialog({
+  images,
+  index,
+  alt,
+  onClose,
+  onIndexChange,
+}: Omit<ShopImageZoomProps, "open">) {
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const drag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
-  const onCloseRef = useRef(onClose);
-  const onIndexChangeRef = useRef(onIndexChange);
-  onCloseRef.current = onClose;
-  onIndexChangeRef.current = onIndexChange;
 
   useEffect(() => {
-    setScale(1);
-    setOffset({ x: 0, y: 0 });
-  }, [open, index]);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        onCloseRef.current();
+        onClose();
       }
       if (event.key === "ArrowLeft") {
-        onIndexChangeRef.current((index - 1 + images.length) % images.length);
+        onIndexChange((index - 1 + images.length) % images.length);
       }
       if (event.key === "ArrowRight") {
-        onIndexChangeRef.current((index + 1) % images.length);
+        onIndexChange((index + 1) % images.length);
       }
       if (event.key === "+" || event.key === "=") {
         setScale((current) => clampScale(current + 0.35));
@@ -80,11 +90,7 @@ function ShopImageZoom({
       document.body.style.overflow = previous;
       window.removeEventListener("keydown", onKey);
     };
-  }, [open, index, images.length]);
-
-  if (!open || images.length === 0) {
-    return null;
-  }
+  }, [index, images.length, onClose, onIndexChange]);
 
   const current = images[Math.min(index, images.length - 1)];
 

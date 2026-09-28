@@ -70,10 +70,7 @@ function ShopProduct() {
     return "";
   }
 
-  useEffect(() => {
-    const max = Math.max(1, available);
-    setQuantity((current) => Math.min(current, max));
-  }, [available]);
+  const selectedQuantity = Math.min(quantity, Math.max(1, available));
 
   async function handleAdd() {
     if (!isShopperSession()) {
@@ -93,7 +90,7 @@ function ShopProduct() {
       try {
         await addShopCartItem(slug, {
           product_id: Number(id),
-          quantity,
+          quantity: selectedQuantity,
           color,
           size,
         });
@@ -326,7 +323,7 @@ function ShopProduct() {
             >
               <ShopQtyStepper
                 size="sm"
-                value={quantity}
+                value={selectedQuantity}
                 min={1}
                 max={Math.max(1, available)}
                 disabled={outOfStock || busy}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { IconClose, IconSearch } from "../icons";
 
@@ -8,13 +8,31 @@ function ShopSearch({ slug, basePath }: { slug?: string; basePath?: string }) {
   const navigate = useNavigate();
   const homePath = basePath || `/shop/${slug}`;
   const isHome = location.pathname === homePath || location.pathname === `${homePath}/`;
-  const [value, setValue] = useState(() => (isHome ? params.get("q") || "" : ""));
+  const initialValue = isHome ? params.get("q") || "" : "";
 
-  useEffect(() => {
-    if (isHome) {
-      setValue(params.get("q") || "");
-    }
-  }, [isHome, params]);
+  return (
+    <ShopSearchInput
+      key={isHome ? `home:${initialValue}` : `page:${location.pathname}`}
+      initialValue={initialValue}
+      homePath={homePath}
+      isHome={isHome}
+      navigate={navigate}
+    />
+  );
+}
+
+function ShopSearchInput({
+  initialValue,
+  homePath,
+  isHome,
+  navigate,
+}: {
+  initialValue: string;
+  homePath: string;
+  isHome: boolean;
+  navigate: ReturnType<typeof useNavigate>;
+}) {
+  const [value, setValue] = useState(initialValue);
 
   function go(next: string) {
     const q = next.trim();
@@ -56,6 +74,7 @@ function ShopSearch({ slug, basePath }: { slug?: string; basePath?: string }) {
         onChange={(event) => {
           const next = event.target.value;
           setValue(next);
+
           if (isHome) {
             go(next);
           }

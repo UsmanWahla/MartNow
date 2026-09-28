@@ -16,15 +16,15 @@ import {
   fetchPlatformStores,
 } from "../../api";
 import { formatOrderNumber, type PlatformOrder, type PlatformStore } from "../../types";
+import { PlatformOrderDetailBody } from "../../components/super/platformOrderUi";
 import {
-  PlatformOrderDetailBody,
   onlineOrderDeliveryColumn,
   onlineOrderSourceColumn,
   platformOrderCustomerColumn,
   platformOrderStatusColumn,
   platformOrderStoreColumn,
   platformOrderTimeColumn,
-} from "../../components/super/platformOrderUi";
+} from "../../components/super/platformOrderColumns";
 
 function SuperOrders() {
   const { showToast } = useToast();
@@ -140,39 +140,42 @@ function SuperOrders() {
 
   return (
     <div className="flex min-w-0 flex-col gap-4 pb-8">
-      <PagePanel
-        title={<TableToolbar search={search} onSearch={setSearch} count={total} />}
-      >
-        <div className="mb-4 flex flex-wrap items-end gap-3">
-          <div className="min-w-12rem flex-1 sm:max-w-xs">
-            <p className="mb-1.5 text-sm font-medium text-slate-600">Store</p>
-            <Select value={storeId} onChange={applyStoreFilter}>
-              <option value="">All stores</option>
-              {stores.map((store) => (
-                <option key={store.id} value={store.id}>
-                  {store.name}
-                </option>
-              ))}
-            </Select>
+      <PagePanel>
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="min-w-12rem sm:max-w-xs">
+              <p className="mb-1.5 text-sm font-medium text-slate-600">Store</p>
+              <Select value={storeId} onChange={applyStoreFilter}>
+                <option value="">All stores</option>
+                {stores.map((store) => (
+                  <option key={store.id} value={store.id}>
+                    {store.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="min-w-11rem">
+              <p className="mb-1.5 text-sm font-medium text-slate-600">Date</p>
+              <DatePicker
+                from={dateRange.from}
+                to={dateRange.to}
+                onChange={applyDateFilter}
+                ariaLabel="Filter platform orders by date"
+              />
+            </div>
+            {filtersActive ? (
+              <button
+                type="button"
+                className="h-42px rounded-xl px-3 text-sm font-semibold text-teal-800 transition-colors hover:bg-teal-50"
+                onClick={clearFilters}
+              >
+                Clear filters
+              </button>
+            ) : null}
           </div>
-          <div className="min-w-11rem">
-            <p className="mb-1.5 text-sm font-medium text-slate-600">Date</p>
-            <DatePicker
-              from={dateRange.from}
-              to={dateRange.to}
-              onChange={applyDateFilter}
-              ariaLabel="Filter platform orders by date"
-            />
+          <div className="flex flex-wrap items-center gap-3">
+            <TableToolbar search={search} onSearch={setSearch} count={total} />
           </div>
-          {filtersActive ? (
-            <button
-              type="button"
-              className="h-42px rounded-xl px-3 text-sm font-semibold text-teal-800 transition-colors hover:bg-teal-50"
-              onClick={clearFilters}
-            >
-              Clear filters
-            </button>
-          ) : null}
         </div>
         <DataTable
           rows={orders}

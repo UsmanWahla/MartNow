@@ -44,6 +44,7 @@ function MarketHome() {
     return stores.filter(
       (store) =>
         store.name.toLowerCase().includes(q) ||
+        store.store_type.toLowerCase().includes(q) ||
         store.address.toLowerCase().includes(q) ||
         store.shop_slug.toLowerCase().includes(q)
     );
@@ -101,6 +102,9 @@ function MarketHome() {
             </div>
             <div className="flex flex-1 flex-col gap-1 px-4 py-3">
               <h2 className="truncate text-base font-semibold text-slate-900">{store.name}</h2>
+              <span className="w-fit rounded-full bg-sky-50 px-2 py-0.5 text-xs font-semibold text-sky-800">
+                {store.store_type}
+              </span>
               <p className="line-clamp-2 text-sm text-slate-500">
                 {store.address || "Local store"}
               </p>

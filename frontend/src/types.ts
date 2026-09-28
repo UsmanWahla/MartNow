@@ -143,6 +143,7 @@ export interface PublicStore {
   longitude: number | null;
   logo_path: string | null;
   delivery_enabled: boolean;
+  store_type: string;
   shop_slug: string;
 }
 
@@ -178,6 +179,29 @@ export interface PlatformStats {
     revenue: number | string;
     commission: number | string;
   }[];
+}
+
+export type CommissionLedgerEntryType = "due" | "received" | "reversal";
+
+export interface PlatformCommissionLedgerEntry {
+  id: number;
+  store_id: number;
+  store_name: string;
+  shop_slug: string;
+  shop_order_id: number | null;
+  sale_id: number | null;
+  entry_type: CommissionLedgerEntryType;
+  amount: number | string;
+  note: string;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface PlatformCommissionLedgerSummary {
+  due: number | string;
+  received: number | string;
+  reversed: number | string;
+  outstanding: number | string;
 }
 
 export type PlatformOrderKind = "online" | "walkin";

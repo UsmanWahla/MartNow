@@ -36,6 +36,8 @@ import {
 
 const emptyForm = {
   name: "",
+  store_category: "",
+  custom_store_type: "",
   address: "",
   latitude: "",
   longitude: "",
@@ -47,6 +49,21 @@ const emptyForm = {
   delivery_enabled: true,
   commission_percent: "0",
 };
+
+const storeCategoryOptions = [
+  { value: "pharmacy", label: "Pharmacy" },
+  { value: "book_shop", label: "Book Shop" },
+  { value: "mart", label: "Mart / General Store" },
+  { value: "clothing", label: "Clothing / Fashion" },
+  { value: "electronics", label: "Electronics" },
+  { value: "beauty", label: "Cosmetics / Beauty" },
+  { value: "food", label: "Food / Restaurant" },
+  { value: "other", label: "Other" },
+];
+
+function categoryForStoreType(storeType: string) {
+  return storeCategoryOptions.find((option) => option.label === storeType)?.value || "other";
+}
 
 function SuperStores() {
   const { showToast } = useToast();
@@ -95,6 +112,10 @@ function SuperStores() {
     setEditing(store);
     setForm({
       name: store.name,
+      store_category: categoryForStoreType(store.store_type),
+      custom_store_type: categoryForStoreType(store.store_type) === "other" && store.store_type !== "Other"
+        ? store.store_type
+        : "",
       address: store.address || "",
       latitude: store.latitude == null ? "" : String(store.latitude),
       longitude: store.longitude == null ? "" : String(store.longitude),
@@ -112,6 +133,10 @@ function SuperStores() {
   function payload() {
     return {
       ...form,
+      store_type:
+        form.store_category === "other"
+          ? form.custom_store_type.trim()
+          : storeCategoryOptions.find((option) => option.value === form.store_category)?.label || "",
       commission_percent: Number(form.commission_percent) || 0,
       logo,
     };
@@ -120,6 +145,13 @@ function SuperStores() {
   function validateStoreForm() {
     return collectFieldErrors([
       ["name", requiredMessage(form.name, "Please enter the store name")],
+      ["store_category", requiredMessage(form.store_category, "Please select the store type")],
+      [
+        "custom_store_type",
+        form.store_category === "other"
+          ? requiredMessage(form.custom_store_type, "Please enter the store type")
+          : "",
+      ],
       ["address", requiredMessage(form.address, "Please enter the address")],
       ["contact_name", requiredMessage(form.contact_name, "Please enter the contact name")],
       ["username", usernameMessage(form.username)],
@@ -196,6 +228,40 @@ function SuperStores() {
         error={errors.name}
         onChange={(name) => patchForm({ name }, "name")}
       />
+      <div>
+        <Select
+          value={form.store_category}
+          error={errors.store_category}
+          onChange={(store_category) => {
+            patchForm(
+              {
+                store_category,
+                custom_store_type: store_category === "other" ? form.custom_store_type : "",
+              },
+              "store_category"
+            );
+
+            if (store_category !== "other") {
+              clearError("custom_store_type");
+            }
+          }}
+        >
+          <option value="">Select store type</option>
+          {storeCategoryOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </Select>
+      </div>
+      {form.store_category === "other" ? (
+        <Field
+          placeholder="Enter store type"
+          value={form.custom_store_type}
+          error={errors.custom_store_type}
+          onChange={(custom_store_type) => patchForm({ custom_store_type }, "custom_store_type")}
+        />
+      ) : null}
       <div>
         <textarea
           className={`${fieldInputClass(errors.address)} min-h-20 resize-y`}
@@ -322,6 +388,17 @@ function SuperStores() {
       ),
     },
     {
+      key: "type",
+      header: "Type",
+      sortable: true,
+      sortValue: (row) => row.store_type,
+      render: (row) => (
+        <span className="w-fit rounded-full bg-sky-50 px-2 py-0.5 text-xs font-semibold text-sky-800">
+          {row.store_type}
+        </span>
+      ),
+    },
+    {
       key: "contact",
       header: "Contact",
       render: (row) => (
@@ -379,10 +456,13 @@ function SuperStores() {
 
   return (
     <div>
-      <PagePanel
-        title={<TableToolbar search={search} onSearch={setSearch} count={total} />}
-        actions={<AddButton label="Add store" onClick={openAdd} />}
-      >
+      <PagePanel>
+        <div className="mb-3 flex flex-col items-end gap-2">
+          <AddButton label="Add store" onClick={openAdd} />
+          <div className="flex flex-wrap items-center gap-3">
+            <TableToolbar search={search} onSearch={setSearch} count={total} />
+          </div>
+        </div>
         <DataTable
           rows={stores}
           columns={columns}

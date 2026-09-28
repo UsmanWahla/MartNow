@@ -13,6 +13,7 @@ const { allocateSlug, slugify } = require("../utils/slug");
 const { mapShop } = require("./shopCore");
 const { mapOrderMoney } = require("../utils/orderMap");
 const { periodClause, normalizePeriod } = require("./dashboardService");
+const { readStoreType, categoryForStoreType } = require("../utils/storeCategory");
 
 function parseCoord(value, label, min, max) {
     if (value === "" || value == null) {
@@ -48,6 +49,15 @@ function readStoreInput(data, { requirePassword = true } = {}) {
     const commission = Math.max(0, Math.min(100, Number(data.commission_percent) || 0));
     const slugHint = String(data.shop_slug || name).trim();
     const logoPath = String(data.logo_path || "").trim() || null;
+    let storeType;
+
+    try {
+        storeType = readStoreType(data.store_category, data.custom_store_type, {
+            requireCustom: Object.hasOwn(data, "store_category")
+        });
+    } catch (error) {
+        throw new ServiceError(400, error.message);
+    }
 
     if (!name || !address || !contactName || !contactPhone || !username) {
         throw new ServiceError(
@@ -89,7 +99,8 @@ function readStoreInput(data, { requirePassword = true } = {}) {
         deliveryEnabled,
         commission,
         slugHint,
-        logoPath
+        logoPath,
+        storeType: storeType.storeType
     };
 }
 
@@ -115,6 +126,7 @@ function toStoreRow(row) {
         logo_path: row.logo_path || null,
         delivery_enabled: Number(row.delivery_enabled) === 1,
         commission_percent: Number(row.commission_percent || 0),
+        store_type: row.store_type || "Other",
         shop_slug: row.shop_slug,
         status: row.status,
         created_at: row.created_at,
@@ -170,8 +182,15 @@ async function listStores(options = {}) {
 
     if (search) {
         where +=
-            " AND (stores.name LIKE ? OR stores.shop_slug LIKE ? OR users.username LIKE ? OR users.email LIKE ? OR stores.address LIKE ?)";
-        params.push(like(search), like(search), like(search), like(search), like(search));
+            " AND (stores.name LIKE ? OR stores.shop_slug LIKE ? OR users.username LIKE ? OR users.email LIKE ? OR stores.address LIKE ? OR stores.store_type LIKE ?)";
+        params.push(
+            like(search),
+            like(search),
+            like(search),
+            like(search),
+            like(search),
+            like(search)
+        );
     }
 
     const from = `
@@ -225,6 +244,7 @@ async function listPublicStores() {
             stores.longitude,
             stores.logo_path,
             stores.delivery_enabled,
+            stores.store_type,
             stores.shop_slug
         FROM stores
         WHERE stores.status = 'active'
@@ -241,6 +261,7 @@ async function listPublicStores() {
             longitude: row.longitude == null ? null : Number(row.longitude),
             logo_path: row.logo_path || null,
             delivery_enabled: Number(row.delivery_enabled) === 1,
+            store_type: row.store_type || "Other",
             shop_slug: row.shop_slug
         }))
     };
@@ -271,8 +292,8 @@ async function createStore(data) {
             INSERT INTO stores (
                 tenant_user_id, name, address, latitude, longitude,
                 contact_name, contact_phone, logo_path, delivery_enabled,
-                commission_percent, shop_slug, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+                commission_percent, store_type, shop_slug, status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
             `,
             [
                 userInsert.insertId,
@@ -285,6 +306,7 @@ async function createStore(data) {
                 input.logoPath,
                 input.deliveryEnabled,
                 input.commission,
+                input.storeType,
                 slug
             ]
         );
@@ -297,6 +319,7 @@ async function createStore(data) {
 
 async function updateStore(storeId, data) {
     const existing = await getStore(storeId);
+    const existingCategory = categoryForStoreType(existing.store_type);
     const input = readStoreInput(
         {
             name: data.name ?? existing.name,
@@ -310,6 +333,12 @@ async function updateStore(storeId, data) {
             shop_slug: data.shop_slug ?? existing.shop_slug,
             delivery_enabled: data.delivery_enabled ?? existing.delivery_enabled,
             commission_percent: data.commission_percent ?? existing.commission_percent,
+            store_category: data.store_category ?? existingCategory,
+            custom_store_type:
+                data.custom_store_type ??
+                (existingCategory === "other" && existing.store_type !== "Other"
+                    ? existing.store_type
+                    : ""),
             logo_path: data.logo_path ?? existing.logo_path
         },
         { requirePassword: false }
@@ -350,7 +379,7 @@ async function updateStore(storeId, data) {
             UPDATE stores
             SET name = ?, address = ?, latitude = ?, longitude = ?,
                 contact_name = ?, contact_phone = ?, logo_path = ?,
-                delivery_enabled = ?, commission_percent = ?, shop_slug = ?
+                delivery_enabled = ?, commission_percent = ?, store_type = ?, shop_slug = ?
             WHERE id = ?
             `,
             [
@@ -363,6 +392,7 @@ async function updateStore(storeId, data) {
                 input.logoPath || existing.logo_path,
                 input.deliveryEnabled,
                 input.commission,
+                input.storeType,
                 nextSlug,
                 storeId
             ]

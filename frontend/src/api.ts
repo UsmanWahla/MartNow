@@ -20,6 +20,8 @@ import {
   type PlatformStats,
   type PlatformStore,
   type PlatformOrder,
+  type PlatformCommissionLedgerEntry,
+  type PlatformCommissionLedgerSummary,
   type PublicStore,
 } from "./types";
 
@@ -543,6 +545,32 @@ export async function fetchPlatformOrders(options?: ListQuery) {
   return fetchList<PlatformOrder>("/api/super/orders", options);
 }
 
+export async function fetchPlatformCommissionLedger(options?: ListQuery) {
+  return fetchList<PlatformCommissionLedgerEntry>("/api/super/commission-ledger", options);
+}
+
+export async function fetchPlatformCommissionLedgerSummary() {
+  const response = await axios.get<PlatformCommissionLedgerSummary>(
+    `${API_URL}/api/super/commission-ledger/summary`,
+    { headers: authHeader() }
+  );
+  return response.data;
+}
+
+export async function recordPlatformCommissionSettlement(payload: {
+  store_id: number;
+  amount: number;
+  note?: string;
+}) {
+  const response = await axios.post<{
+    message: string;
+    entry: PlatformCommissionLedgerEntry;
+  }>(`${API_URL}/api/super/commission-ledger/settlements`, payload, {
+    headers: authHeader(),
+  });
+  return response.data;
+}
+
 export async function fetchPlatformDeliveries(options?: ListQuery) {
   return fetchList<PlatformOrder>("/api/super/deliveries", options);
 }
@@ -579,6 +607,9 @@ function storeForm(payload: {
   shop_slug?: string;
   delivery_enabled: boolean;
   commission_percent: number;
+  store_category: string;
+  custom_store_type?: string;
+  store_type?: string;
   logo?: File | null;
 }) {
   const form = new FormData();
@@ -592,6 +623,9 @@ function storeForm(payload: {
   form.append("shop_slug", payload.shop_slug || "");
   form.append("delivery_enabled", payload.delivery_enabled ? "1" : "0");
   form.append("commission_percent", String(payload.commission_percent));
+  form.append("store_category", payload.store_category);
+  form.append("custom_store_type", payload.custom_store_type || "");
+  form.append("store_type", payload.store_type || "");
 
   if (payload.password) {
     form.append("password", payload.password);

@@ -7,6 +7,7 @@ const { requireRole } = require("../middleware/auth");
 const { parseStoreForm } = require("../utils/upload");
 const authService = require("../services/authService");
 const storeService = require("../services/storeService");
+const commissionLedgerService = require("../services/commissionLedgerService");
 
 function requireSuper(req, res) {
     return requireRole(req, res, SUPER_ADMIN);
@@ -42,6 +43,50 @@ async function handleSuperRoutes(req, res) {
 
         const period = getQuery(req.url).get("period") || "month";
         sendJSON(req, res, 200, await storeService.getPlatformStats(period));
+        return true;
+    }
+
+    if (req.method === "GET" && path === "/api/super/commission-ledger/summary") {
+        const auth = requireSuper(req, res);
+
+        if (!auth) {
+            return true;
+        }
+
+        sendJSON(req, res, 200, await commissionLedgerService.getCommissionLedgerSummary());
+        return true;
+    }
+
+    if (req.method === "GET" && path === "/api/super/commission-ledger") {
+        const auth = requireSuper(req, res);
+
+        if (!auth) {
+            return true;
+        }
+
+        sendJSON(
+            req,
+            res,
+            200,
+            await commissionLedgerService.listCommissionLedger(fromQuery(getQuery(req.url)))
+        );
+        return true;
+    }
+
+    if (req.method === "POST" && path === "/api/super/commission-ledger/settlements") {
+        const auth = requireSuper(req, res);
+
+        if (!auth) {
+            return true;
+        }
+
+        const body = await getRequestBody(req);
+        sendJSON(
+            req,
+            res,
+            201,
+            await commissionLedgerService.recordCommissionSettlement(body, auth.id)
+        );
         return true;
     }
 

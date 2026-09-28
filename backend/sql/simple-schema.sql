@@ -229,11 +229,13 @@ CREATE TABLE stores (
     logo_path VARCHAR(255) NULL,
     delivery_enabled TINYINT(1) NOT NULL DEFAULT 1,
     commission_percent DECIMAL(5, 2) NOT NULL DEFAULT 0,
+    store_type VARCHAR(100) NOT NULL DEFAULT 'Other',
     shop_slug VARCHAR(60) NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (tenant_user_id) REFERENCES users(id) ON DELETE CASCADE,
     UNIQUE KEY uq_stores_tenant (tenant_user_id),
     UNIQUE KEY uq_stores_slug (shop_slug),
-    KEY idx_stores_status (status)
+    KEY idx_stores_status (status),
+    KEY idx_stores_type (store_type)
 );

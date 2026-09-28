@@ -778,16 +778,13 @@ function Products() {
 
   return (
     <div>
-      <PagePanel
-        title={
-          <TableToolbar
-            search={search}
-            onSearch={setSearch}
-            count={total}
-          />
-        }
-        actions={<AddButton onClick={openAdd} />}
-      >
+      <PagePanel>
+        <div className="mb-3 flex flex-col items-end gap-2">
+          <AddButton onClick={openAdd} />
+          <div className="flex flex-wrap items-center gap-3">
+            <TableToolbar search={search} onSearch={setSearch} count={total} />
+          </div>
+        </div>
         <DataTable
           rows={products}
           columns={columns}

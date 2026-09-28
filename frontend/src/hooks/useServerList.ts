@@ -53,13 +53,13 @@ export function useServerList<T>(
     } finally {
       setLoading(false);
     }
-  }, [page, query, extraKey]);
+  }, [page, query]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- list fetch
     setLoading(true);
     void loadList();
-  }, [loadList]);
+  }, [extraKey, loadList]);
 
   function goToPage(nextPage: number) {
     if (nextPage === page) {

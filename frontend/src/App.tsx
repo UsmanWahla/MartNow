@@ -25,6 +25,7 @@ import SuperDashboard from "./pages/super/SuperDashboard";
 import SuperStores from "./pages/super/SuperStores";
 import SuperOrders from "./pages/super/SuperOrders";
 import SuperDeliveries from "./pages/super/SuperDeliveries";
+import SuperCommissionLedger from "./pages/super/SuperCommissionLedger";
 import MarketHome from "./pages/market/MarketHome";
 import CustomerLogin from "./pages/market/CustomerLogin";
 import CustomerRegister from "./pages/market/CustomerRegister";
@@ -59,6 +60,7 @@ function App() {
           <Route index element={<SuperDashboard />} />
           <Route path="orders" element={<SuperOrders />} />
           <Route path="deliveries" element={<SuperDeliveries />} />
+          <Route path="commission-ledger" element={<SuperCommissionLedger />} />
           <Route path="stores" element={<SuperStores />} />
         </Route>
 

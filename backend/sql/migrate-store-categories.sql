@@ -1,0 +1,2 @@
+ALTER TABLE stores
+    ADD COLUMN store_type VARCHAR(100) NULL;

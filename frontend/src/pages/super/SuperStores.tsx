@@ -13,6 +13,7 @@ import RowMenu from "../../components/RowMenu";
 import Select from "../../components/Select";
 import NoteCell from "../../components/NoteCell";
 import Money from "../../components/Money";
+import { categoryForStoreType, storeCategoryOptions } from "../../storeTypes";
 import { useToast } from "../../hooks/useToast";
 import useBusy from "../../hooks/useBusy";
 import { useServerList } from "../../hooks/useServerList";
@@ -50,21 +51,6 @@ const emptyForm = {
   delivery_enabled: true,
   commission_percent: "0",
 };
-
-const storeCategoryOptions = [
-  { value: "pharmacy", label: "Pharmacy" },
-  { value: "book_shop", label: "Book Shop" },
-  { value: "mart", label: "Mart / General Store" },
-  { value: "clothing", label: "Clothing / Fashion" },
-  { value: "electronics", label: "Electronics" },
-  { value: "beauty", label: "Cosmetics / Beauty" },
-  { value: "food", label: "Food / Restaurant" },
-  { value: "other", label: "Other" },
-];
-
-function categoryForStoreType(storeType: string) {
-  return storeCategoryOptions.find((option) => option.label === storeType)?.value || "other";
-}
 
 function SuperStores() {
   const { showToast } = useToast();

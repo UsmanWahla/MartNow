@@ -28,7 +28,8 @@ async function migrate() {
         "migrate-store-categories.sql",
         "migrate-commission-ledger.sql",
         "migrate-delivery-by.sql",
-        "migrate-username.sql"
+        "migrate-username.sql",
+        "migrate-user-avatar.sql"
     ];
 
     for (const fileName of files) {

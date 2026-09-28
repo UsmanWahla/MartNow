@@ -172,7 +172,10 @@ function handleUploads(req, res) {
     return true;
 }
 
-function parseStoreForm(req) {
+function parseStoreForm(
+    req,
+    { fileFields = ["logo", "image"], uploadFolder = "stores", resultField = "logo_path" } = {}
+) {
     const contentType = String(req.headers["content-type"] || "");
 
     if (!contentType.includes("multipart/form-data")) {
@@ -184,7 +187,7 @@ function parseStoreForm(req) {
         let finished = false;
         let pendingFiles = 0;
         const fields = {};
-        let logoPath = "";
+        let imagePath = "";
 
         function fail(error) {
             if (settled) {
@@ -202,8 +205,8 @@ function parseStoreForm(req) {
 
             settled = true;
 
-            if (logoPath) {
-                fields.logo_path = logoPath;
+            if (imagePath) {
+                fields[resultField] = imagePath;
             }
 
             resolve(fields);
@@ -215,7 +218,7 @@ function parseStoreForm(req) {
         });
 
         busboy.on("file", (name, file, info) => {
-            if (name !== "logo" && name !== "image") {
+            if (!fileFields.includes(name)) {
                 file.resume();
                 return;
             }
@@ -229,7 +232,7 @@ function parseStoreForm(req) {
                 return;
             }
 
-            const dir = path.join(UPLOAD_ROOT, "stores");
+            const dir = path.join(UPLOAD_ROOT, uploadFolder);
             fs.mkdirSync(dir, { recursive: true });
             const filename = `${Date.now()}-${crypto.randomBytes(4).toString("hex")}${ext}`;
             const dest = path.join(dir, filename);
@@ -251,7 +254,7 @@ function parseStoreForm(req) {
                     return;
                 }
 
-                logoPath = `/uploads/stores/${filename}`;
+                imagePath = `/uploads/${uploadFolder}/${filename}`;
                 tryDone();
             });
             out.on("error", fail);

@@ -409,6 +409,8 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
 
     it("lets a platform customer shop a store created by super admin APIs", async () => {
         const storeService = require("../services/storeService");
+        const settingsService = require("../services/settingsService");
+        const profileService = require("../services/profileService");
         const shopCartService = require("../services/shopCartService");
         const stamp = Date.now();
         const created = await storeService.createStore({
@@ -436,6 +438,34 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
         assert.equal(publicStore?.store_type, "Bakery");
 
         const tenantId = created.store.tenant_user_id;
+        const updatedProfile = await profileService.updateAccountProfile(
+            tenantId,
+            `${created.store.username}@store.local`,
+            {
+                name: "QA Account Owner",
+                username: `qa.owner.${stamp}`,
+                current_password: "Storepass1",
+                avatar_path: "/uploads/avatars/qa-test.webp"
+            }
+        );
+        assert.equal(updatedProfile.user.username, `qa.owner.${stamp}`);
+        assert.equal(updatedProfile.user.avatar_path, "/uploads/avatars/qa-test.webp");
+
+        const savedSettings = await settingsService.updateShopProfile(tenantId, {
+            shop_name: "QA Bakery",
+            shop_slug: created.store.shop_slug,
+            low_stock_threshold: 4,
+            address: "Updated Test Street",
+            contact_name: "QA Contact",
+            contact_phone: "03001112222",
+            store_category: "other",
+            custom_store_type: "Bakery"
+        });
+        assert.equal(savedSettings.settings.shop_name, "QA Bakery");
+        assert.equal(savedSettings.settings.contact_name, "QA Contact");
+        assert.equal(savedSettings.settings.store_type, "Bakery");
+        assert.equal(savedSettings.user.name, "QA Contact");
+
         const product = await productService.addProduct(tenantId, {
             name: "QA Mug",
             price: 40,

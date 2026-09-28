@@ -1,7 +1,8 @@
 const { sendJSON, getPath, getRequestBody } = require("../utils/http");
 const { requireLogin, requireRole } = require("../middleware/auth");
-const { CATALOG } = require("../utils/roles");
+const { CATALOG, OWNER } = require("../utils/roles");
 const settingsService = require("../services/settingsService");
+const { parseStoreForm } = require("../utils/upload");
 
 async function handleSettingsRoutes(req, res) {
     const path = getPath(req.url);
@@ -27,6 +28,19 @@ async function handleSettingsRoutes(req, res) {
 
         const body = await getRequestBody(req);
         const result = await settingsService.updateSettings(auth.tenantId, body);
+        sendJSON(req, res, 200, result);
+        return true;
+    }
+
+    if (req.method === "PUT" && path === "/api/settings/shop-profile") {
+        const auth = requireRole(req, res, OWNER);
+
+        if (!auth) {
+            return true;
+        }
+
+        const body = await parseStoreForm(req);
+        const result = await settingsService.updateShopProfile(auth.tenantId, body);
         sendJSON(req, res, 200, result);
         return true;
     }

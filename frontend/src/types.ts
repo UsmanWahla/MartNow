@@ -130,7 +130,11 @@ export interface ShopSettings {
   shop_slug?: string;
   low_stock_threshold: number;
   address?: string;
+  contact_name?: string;
+  contact_phone?: string;
+  store_type?: string;
   logo_path?: string | null;
+  avatar_path?: string | null;
   delivery_enabled?: boolean;
   commission_percent?: number;
 }

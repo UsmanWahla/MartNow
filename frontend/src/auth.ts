@@ -12,6 +12,7 @@ export interface User {
   shop_name?: string;
   shop_slug?: string;
   low_stock_threshold?: number;
+  avatar_path?: string | null;
 }
 
 export const API_URL = import.meta.env.VITE_API_URL ?? "";

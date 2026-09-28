@@ -1,4 +1,4 @@
-import { getUserInitials } from "../auth";
+import { API_URL, getUserInitials } from "../auth";
 import type { User } from "../auth";
 
 interface AvatarProps {
@@ -11,6 +11,20 @@ function Avatar({ user, size = "sm" }: AvatarProps) {
     size === "lg"
       ? "h-16 w-16 text-xl"
       : "h-10 w-10 text-sm";
+
+  if (user?.avatar_path) {
+    const src = user.avatar_path.startsWith("http")
+      ? user.avatar_path
+      : `${API_URL}${user.avatar_path}`;
+
+    return (
+      <img
+        src={src}
+        alt=""
+        className={`shrink-0 rounded-full border border-white/80 bg-teal-50 object-cover ${classes}`}
+      />
+    );
+  }
 
   return (
     <div

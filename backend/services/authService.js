@@ -26,7 +26,8 @@ function toPublicUser(user) {
         tenantId,
         shop_name: user.shop_name || "",
         shop_slug: user.shop_slug || "",
-        low_stock_threshold: Number(user.low_stock_threshold || 3)
+        low_stock_threshold: Number(user.low_stock_threshold || 3),
+        avatar_path: user.avatar_path || null
     };
 }
 

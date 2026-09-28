@@ -25,16 +25,20 @@ import {
   fetchSettings,
   fetchStaff,
   removeStaff,
-  saveProfile,
+  saveAccountProfile,
+  savePassword,
+  saveStoreProfileSettings,
   saveSettings,
 } from "../api";
 import { canManageStaff, getRole } from "../roles";
 import type { StaffMember } from "../types";
+import { categoryForStoreType, storeCategoryOptions } from "../storeTypes";
 import {
   collectFieldErrors,
   emailMessage,
   passwordStrengthMessage,
   requiredMessage,
+  usernameMessage,
 } from "../utils/formValidate";
 
 const emptyStaff = {
@@ -91,15 +95,28 @@ function Settings() {
   const showStaffTab = canManageStaff(role);
   const [tab, setTab] = useState<SettingsTab>("profile");
   const [name, setName] = useState(user?.name ?? "");
+  const [username, setUsername] = useState(user?.username ?? "");
+  const [avatar, setAvatar] = useState<File | null>(null);
+  const [usernameCurrentPassword, setUsernameCurrentPassword] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [staffLoading, setStaffLoading] = useState(showStaffTab);
   const [staffForm, setStaffForm] = useState(emptyStaff);
   const [shopName, setShopName] = useState(user?.shop_name ?? "");
   const [shopSlug, setShopSlug] = useState(user?.shop_slug ?? "");
   const [lowStock, setLowStock] = useState(String(user?.low_stock_threshold ?? 3));
+  const [storeCategory, setStoreCategory] = useState("");
+  const [customStoreType, setCustomStoreType] = useState("");
+  const [contactName, setContactName] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+  const [storeAddress, setStoreAddress] = useState("");
+  const [logo, setLogo] = useState<File | null>(null);
   const [showStaff, setShowStaff] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<StaffMember | null>(null);
   const { errors, clearError, clearAll, report } = useFieldErrors();
+  const canEditStoreProfile = role === "owner";
 
   useEffect(() => {
     async function load() {
@@ -108,6 +125,36 @@ function Settings() {
         setShopName(settings.shop_name);
         setShopSlug(settings.shop_slug || "");
         setLowStock(String(settings.low_stock_threshold));
+        setStoreCategory(categoryForStoreType(settings.store_type || "Other"));
+        setCustomStoreType(
+          categoryForStoreType(settings.store_type || "Other") === "other" &&
+            settings.store_type !== "Other"
+            ? settings.store_type || ""
+            : ""
+        );
+        setContactName(settings.contact_name || "");
+        setContactPhone(settings.contact_phone || "");
+        setStoreAddress(settings.address || "");
+
+        const currentUser = getUser();
+        if (currentUser) {
+          const nextUser = {
+            ...currentUser,
+            avatar_path: settings.avatar_path || null,
+            ...(role === "owner" && settings.contact_name
+              ? { name: settings.contact_name }
+              : {}),
+          };
+
+          if (
+            nextUser.avatar_path !== currentUser.avatar_path ||
+            nextUser.name !== currentUser.name
+          ) {
+            saveUser(nextUser);
+            setUser(nextUser);
+            setName(nextUser.name);
+          }
+        }
 
         if (canManageStaff(role)) {
           setStaff(await fetchStaff());
@@ -122,12 +169,26 @@ function Settings() {
     void load();
   }, [role, showToast]);
 
-  async function handleName(event: React.FormEvent) {
+  async function handleProfile(event: React.FormEvent) {
     event.preventDefault();
+
+    const usernameChanged = username.trim() !== (user?.username ?? "");
 
     if (
       !report(
-        collectFieldErrors([["name", requiredMessage(name, "Please enter your name")]]),
+        collectFieldErrors([
+          ["profileName", requiredMessage(name, "Please enter your name")],
+          ["username", username.trim() ? usernameMessage(username) : ""],
+          [
+            "usernameCurrentPassword",
+            usernameChanged
+              ? requiredMessage(
+                  usernameCurrentPassword,
+                  "Enter your current password to change your username"
+                )
+              : "",
+          ],
+        ]),
         showToast
       )
     ) {
@@ -136,12 +197,51 @@ function Settings() {
 
     await run(async () => {
       try {
-        const response = await saveProfile({ name });
+        const response = await saveAccountProfile({
+          name,
+          username,
+          current_password: usernameCurrentPassword,
+          avatar,
+        });
         saveUser(response.user);
         setUser(response.user);
+        setAvatar(null);
+        setUsernameCurrentPassword("");
         showToast(response.message, "success");
       } catch (loadError) {
-        showToast(getApiError(loadError, "Unable to update name"));
+        showToast(getApiError(loadError, "Unable to save profile"));
+      }
+    });
+  }
+
+  async function handlePassword(event: React.FormEvent) {
+    event.preventDefault();
+
+    if (
+      !report(
+        collectFieldErrors([
+          ["currentPassword", requiredMessage(currentPassword, "Please enter your current password")],
+          ["newPassword", passwordStrengthMessage(newPassword)],
+          [
+            "confirmPassword",
+            newPassword !== confirmPassword ? "New passwords do not match" : "",
+          ],
+        ]),
+        showToast
+      )
+    ) {
+      return;
+    }
+
+    await run(async () => {
+      try {
+        const response = await savePassword({ currentPassword, newPassword });
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+        showToast(response.message, "success");
+      } catch (loadError) {
+        showToast(getApiError(loadError, "Unable to update password"));
       }
     });
   }
@@ -159,6 +259,24 @@ function Settings() {
               ? "Please enter a valid low stock amount"
               : "",
           ],
+          [
+            "storeCategory",
+            canEditStoreProfile ? requiredMessage(storeCategory, "Please select the store type") : "",
+          ],
+          [
+            "customStoreType",
+            canEditStoreProfile && storeCategory === "other"
+              ? requiredMessage(customStoreType, "Please enter the store type")
+              : "",
+          ],
+          [
+            "contactName",
+            canEditStoreProfile ? requiredMessage(contactName, "Please enter the contact name") : "",
+          ],
+          [
+            "contactPhone",
+            canEditStoreProfile ? requiredMessage(contactPhone, "Please enter the contact phone") : "",
+          ],
         ]),
         showToast
       )
@@ -168,11 +286,23 @@ function Settings() {
 
     await run(async () => {
       try {
-        const response = await saveSettings({
-          shop_name: shopName,
-          shop_slug: shopSlug,
-          low_stock_threshold: Number(lowStock),
-        });
+        const response = canEditStoreProfile
+          ? await saveStoreProfileSettings({
+              shop_name: shopName,
+              shop_slug: shopSlug,
+              low_stock_threshold: Number(lowStock),
+              address: storeAddress,
+              contact_name: contactName,
+              contact_phone: contactPhone,
+              store_category: storeCategory,
+              custom_store_type: customStoreType,
+              logo,
+            })
+          : await saveSettings({
+              shop_name: shopName,
+              shop_slug: shopSlug,
+              low_stock_threshold: Number(lowStock),
+            });
         if (response.user) {
           saveUser({ ...getUser()!, ...response.user });
           setUser({ ...getUser()!, ...response.user });
@@ -180,6 +310,7 @@ function Settings() {
         if (response.settings?.shop_slug) {
           setShopSlug(response.settings.shop_slug);
         }
+        setLogo(null);
         showToast(response.message, "success");
       } catch (loadError) {
         showToast(getApiError(loadError, "Unable to save shop settings"));
@@ -338,49 +469,122 @@ function Settings() {
 
         <section className="anim-fade-up surface-card rounded-2xl p-5 sm:p-6">
           {tab === "profile" ? (
-            <form className="max-w-lg" onSubmit={handleName}>
-              <div className="mb-6 flex items-start gap-3">
-                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-teal-50 text-teal-800">
-                  <IconSettings className="h-4 w-4" />
+            <div className="max-w-lg space-y-8">
+              <form onSubmit={handleProfile}>
+                <div className="mb-6 flex items-start gap-3">
+                  <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-teal-50 text-teal-800">
+                    <IconSettings className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-semibold text-slate-900">Profile</h3>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Update your account details and sign-in username.
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-base font-semibold text-slate-900">Profile</h3>
+                <div className="space-y-4">
+                  <SettingField label="Profile photo" hint="JPG, PNG, or WebP up to 2MB.">
+                    <div className="flex items-center gap-3">
+                      <Avatar user={user} />
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="block w-full rounded-xl border border-dashed border-slate-300 bg-white px-3 py-2 text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-teal-50 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-teal-800 hover:file:bg-teal-100"
+                        onChange={(event) => setAvatar(event.target.files?.[0] || null)}
+                      />
+                    </div>
+                  </SettingField>
+                  <SettingField label="Display name">
+                    <Field
+                      value={name}
+                      error={errors.profileName}
+                      onChange={(value) => {
+                        setName(value);
+                        clearError("profileName");
+                      }}
+                      placeholder="Your name"
+                    />
+                  </SettingField>
+                  <SettingField
+                    label="Username"
+                    hint="Changing your username requires your current password."
+                  >
+                    <Field
+                      value={username}
+                      error={errors.username}
+                      onChange={(value) => {
+                        setUsername(value.toLowerCase());
+                        clearError("username");
+                      }}
+                      placeholder="e.g. ali-trader"
+                    />
+                  </SettingField>
+                  {username.trim() !== (user?.username ?? "") ? (
+                    <SettingField label="Current password">
+                      <PasswordInput
+                        value={usernameCurrentPassword}
+                        error={errors.usernameCurrentPassword}
+                        onChange={(value) => {
+                          setUsernameCurrentPassword(value);
+                          clearError("usernameCurrentPassword");
+                        }}
+                        placeholder="Confirm your current password"
+                      />
+                    </SettingField>
+                  ) : null}
+                </div>
+                <div className="mt-6 flex justify-end border-t border-(--hairline) pt-4">
+                  <SaveButton loading={busy} />
+                </div>
+              </form>
+
+              <form className="border-t border-(--hairline) pt-7" onSubmit={handlePassword}>
+                <div className="mb-5">
+                  <h3 className="text-base font-semibold text-slate-900">Change password</h3>
                   <p className="mt-1 text-sm text-slate-500">
-                    This name appears in the header and on staff records.
+                    Use your current password to securely set a new one.
                   </p>
                 </div>
-              </div>
-              <div className="space-y-4">
-                <SettingField label="Display name">
-                  <Field
-                    value={name}
-                    error={errors.name}
-                    onChange={(value) => {
-                      setName(value);
-                      clearError("name");
-                    }}
-                    placeholder="Your name"
-                  />
-                </SettingField>
-                <SettingField
-                  label={user?.username ? "Username" : "Email"}
-                  hint={
-                    user?.username
-                      ? "Username is used to sign in and cannot be changed here."
-                      : "Email is used to sign in and cannot be changed here."
-                  }
-                >
-                  <Field
-                    value={user?.username ? user.username : user?.email ?? ""}
-                    onChange={() => undefined}
-                    disabled
-                  />
-                </SettingField>
-              </div>
-              <div className="mt-6 flex justify-end border-t border-(--hairline) pt-4">
-                <SaveButton loading={busy} />
-              </div>
-            </form>
+                <div className="space-y-4">
+                  <SettingField label="Current password">
+                    <PasswordInput
+                      value={currentPassword}
+                      error={errors.currentPassword}
+                      onChange={(value) => {
+                        setCurrentPassword(value);
+                        clearError("currentPassword");
+                      }}
+                      placeholder="Current password"
+                    />
+                  </SettingField>
+                  <SettingField label="New password">
+                    <PasswordInput
+                      value={newPassword}
+                      error={errors.newPassword}
+                      onChange={(value) => {
+                        setNewPassword(value);
+                        clearError("newPassword");
+                      }}
+                      placeholder="8+ characters with a letter and number"
+                    />
+                  </SettingField>
+                  <SettingField label="Confirm new password">
+                    <PasswordInput
+                      value={confirmPassword}
+                      error={errors.confirmPassword}
+                      onChange={(value) => {
+                        setConfirmPassword(value);
+                        clearError("confirmPassword");
+                      }}
+                      placeholder="Repeat new password"
+                    />
+                  </SettingField>
+                </div>
+                <div className="mt-6 flex justify-end border-t border-(--hairline) pt-4">
+                  <SaveButton loading={busy}>Update password</SaveButton>
+                </div>
+              </form>
+            </div>
           ) : null}
 
           {tab === "shop" ? (
@@ -408,6 +612,82 @@ function Settings() {
                     placeholder="Shop name"
                   />
                 </SettingField>
+                {canEditStoreProfile ? (
+                  <>
+                    <SettingField label="Store type">
+                      <Select
+                        value={storeCategory}
+                        error={errors.storeCategory}
+                        onChange={(value) => {
+                          setStoreCategory(value);
+                          setCustomStoreType(value === "other" ? customStoreType : "");
+                          clearError("storeCategory");
+                          clearError("customStoreType");
+                        }}
+                      >
+                        <option value="">Select store type</option>
+                        {storeCategoryOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </Select>
+                    </SettingField>
+                    {storeCategory === "other" ? (
+                      <SettingField label="Custom store type">
+                        <Field
+                          value={customStoreType}
+                          error={errors.customStoreType}
+                          onChange={(value) => {
+                            setCustomStoreType(value);
+                            clearError("customStoreType");
+                          }}
+                          placeholder="e.g. Bakery"
+                        />
+                      </SettingField>
+                    ) : null}
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <SettingField label="Contact name">
+                        <Field
+                          value={contactName}
+                          error={errors.contactName}
+                          onChange={(value) => {
+                            setContactName(value);
+                            clearError("contactName");
+                          }}
+                          placeholder="Contact name"
+                        />
+                      </SettingField>
+                      <SettingField label="Contact phone">
+                        <Field
+                          value={contactPhone}
+                          error={errors.contactPhone}
+                          onChange={(value) => {
+                            setContactPhone(value);
+                            clearError("contactPhone");
+                          }}
+                          placeholder="Contact phone"
+                        />
+                      </SettingField>
+                    </div>
+                    <SettingField label="Store address">
+                      <textarea
+                        className="field-input min-h-20 resize-y"
+                        value={storeAddress}
+                        onChange={(event) => setStoreAddress(event.target.value)}
+                        placeholder="Store address"
+                      />
+                    </SettingField>
+                    <SettingField label="Store logo" hint="Used on your public shop and marketplace listing.">
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="block w-full rounded-xl border border-dashed border-slate-300 bg-white px-3 py-2 text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-teal-50 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-teal-800 hover:file:bg-teal-100"
+                        onChange={(event) => setLogo(event.target.files?.[0] || null)}
+                      />
+                    </SettingField>
+                  </>
+                ) : null}
                 <SettingField
                   label="Online shop URL"
                   hint="Customers open this link to browse, log in, and place COD orders."

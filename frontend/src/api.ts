@@ -470,6 +470,61 @@ export async function saveProfile(payload: { name: string }) {
   return response.data;
 }
 
+export async function saveAccountProfile(payload: {
+  name: string;
+  username?: string;
+  current_password?: string;
+  avatar?: File | null;
+}) {
+  const form = new FormData();
+  form.append("name", payload.name);
+  form.append("username", payload.username || "");
+  form.append("current_password", payload.current_password || "");
+
+  if (payload.avatar) {
+    form.append("avatar", payload.avatar);
+  }
+
+  const response = await axios.put<{
+    message: string;
+    user: import("./auth").User;
+  }>(`${API_URL}/api/profile/account`, form, { headers: authHeader() });
+  return response.data;
+}
+
+export async function saveStoreProfileSettings(payload: {
+  shop_name: string;
+  shop_slug: string;
+  low_stock_threshold: number;
+  address?: string;
+  contact_name: string;
+  contact_phone: string;
+  store_category: string;
+  custom_store_type?: string;
+  logo?: File | null;
+}) {
+  const form = new FormData();
+  form.append("shop_name", payload.shop_name);
+  form.append("shop_slug", payload.shop_slug);
+  form.append("low_stock_threshold", String(payload.low_stock_threshold));
+  form.append("address", payload.address || "");
+  form.append("contact_name", payload.contact_name);
+  form.append("contact_phone", payload.contact_phone);
+  form.append("store_category", payload.store_category);
+  form.append("custom_store_type", payload.custom_store_type || "");
+
+  if (payload.logo) {
+    form.append("logo", payload.logo);
+  }
+
+  const response = await axios.put<{
+    message: string;
+    settings: ShopSettings;
+    user?: import("./auth").User;
+  }>(`${API_URL}/api/settings/shop-profile`, form, { headers: authHeader() });
+  return response.data;
+}
+
 export async function savePassword(payload: {
   currentPassword: string;
   newPassword: string;

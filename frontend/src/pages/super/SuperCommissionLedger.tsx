@@ -193,7 +193,7 @@ function SuperCommissionLedger() {
     <div className="flex min-w-0 flex-col gap-4 pb-8">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          label="Commission due"
+          label="Commission"
           value={summary ? formatCardMoney(summary.due) : "—"}
           numeric={summary ? Number(summary.due) : undefined}
           formatNumeric={formatCardMoney}

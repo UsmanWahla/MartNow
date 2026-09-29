@@ -137,7 +137,11 @@ function RowMenu({ onEdit, onDelete, extras = [] }: RowMenuProps) {
   );
 
   return (
-    <div className="relative flex justify-end">
+    <div
+      className="relative flex justify-end"
+      onClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => event.stopPropagation()}
+    >
       <button
         ref={buttonRef}
         type="button"

@@ -174,6 +174,20 @@ export interface PlatformStore extends PublicStore {
   commission?: number | string;
 }
 
+export interface PlatformStoreOverview {
+  products: number;
+  stock: number;
+  online_orders: number;
+  walkin_orders: number;
+  orders: number;
+  sales: number | string;
+}
+
+export interface PlatformStoreDetail {
+  store: PlatformStore;
+  overview: PlatformStoreOverview;
+}
+
 export interface ShopMeta {
   shop_name: string;
   shop_slug: string;

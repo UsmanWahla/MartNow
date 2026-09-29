@@ -16,6 +16,7 @@ const { periodClause, normalizePeriod } = require("./dashboardService");
 const { readStoreType, categoryForStoreType } = require("../utils/storeCategory");
 const { readStorefrontText } = require("../utils/storefront");
 const { parseLatitude, parseLongitude } = require("../utils/coordinates");
+const productService = require("./productService");
 
 function readStoreInput(data, { requirePassword = true } = {}) {
     const name = String(data.name || data.shop_name || "").trim();
@@ -230,6 +231,74 @@ async function listStores(options = {}) {
     );
 
     return { rows: rows.map(toStoreRow), total: Number(countRows[0].n) };
+}
+
+async function getStoreDetail(storeId) {
+    const store = await getStore(storeId);
+    const tenantId = store.tenant_user_id;
+    const [catalogRows, onlineRows, walkInRows] = await Promise.all([
+        query(
+            `
+            SELECT
+                COUNT(*) AS products,
+                COALESCE(SUM(stock), 0) AS stock
+            FROM products
+            WHERE user_id = ?
+            `,
+            [tenantId]
+        ),
+        query(
+            `
+            SELECT
+                COUNT(shop_orders.id) AS orders,
+                COALESCE(SUM(
+                    CASE
+                        WHEN shop_orders.delivery_status <> 'cancelled'
+                        THEN sales.total_amount
+                        ELSE 0
+                    END
+                ), 0) AS sales
+            FROM shop_orders
+            LEFT JOIN sales ON sales.id = shop_orders.sale_id
+            WHERE shop_orders.user_id = ?
+            `,
+            [tenantId]
+        ),
+        query(
+            `
+            SELECT
+                COUNT(sales.id) AS orders,
+                COALESCE(SUM(sales.total_amount), 0) AS sales
+            FROM sales
+            WHERE sales.user_id = ?
+              AND NOT EXISTS (
+                  SELECT 1 FROM shop_orders WHERE shop_orders.sale_id = sales.id
+              )
+            `,
+            [tenantId]
+        )
+    ]);
+    const onlineOrders = toNumber(onlineRows[0].orders);
+    const walkInOrders = toNumber(walkInRows[0].orders);
+
+    return {
+        store,
+        overview: {
+            products: toNumber(catalogRows[0].products),
+            stock: toNumber(catalogRows[0].stock),
+            online_orders: onlineOrders,
+            walkin_orders: walkInOrders,
+            orders: onlineOrders + walkInOrders,
+            sales: toMoney(
+                toMoney(onlineRows[0].sales) + toMoney(walkInRows[0].sales)
+            )
+        }
+    };
+}
+
+async function listStoreProducts(storeId, options = {}) {
+    const store = await getStore(storeId);
+    return productService.listProducts(store.tenant_user_id, options);
 }
 
 async function listPublicStores() {
@@ -967,6 +1036,8 @@ module.exports = {
     listStores,
     listPublicStores,
     getStore,
+    getStoreDetail,
+    listStoreProducts,
     createStore,
     updateStore,
     deactivateStore,

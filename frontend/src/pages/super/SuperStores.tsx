@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import PagePanel from "../../components/PagePanel";
 import AddButton from "../../components/AddButton";
 import Field from "../../components/Field";
@@ -57,6 +58,7 @@ const emptyForm = {
 };
 
 function SuperStores() {
+  const navigate = useNavigate();
   const { showToast } = useToast();
   const { busy, run } = useBusy();
   const [showAdd, setShowAdd] = useState(false);
@@ -513,6 +515,7 @@ function SuperStores() {
       header: "Action",
       render: (row) => (
         <RowMenu
+          extras={[{ label: "View details", onClick: () => navigate(`/super/stores/${row.id}`) }]}
           onEdit={() => openEdit(row)}
           onDelete={() =>
             row.status === "active" ? setPendingDeactivate(row) : setPendingDelete(row)
@@ -540,6 +543,8 @@ function SuperStores() {
           total={total}
           page={page}
           onPageChange={setPage}
+          onRowClick={(store) => navigate(`/super/stores/${store.id}`)}
+          rowAriaLabel={(store) => `View ${store.name} details`}
           emptyMessage={total === 0 && !search ? "No stores yet." : "No matching stores."}
         />
       </PagePanel>

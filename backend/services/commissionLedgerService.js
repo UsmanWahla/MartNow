@@ -31,7 +31,10 @@ function mapEntry(row) {
     };
 }
 
-async function getCommissionLedgerSummary() {
+async function getCommissionLedgerSummary(options = {}) {
+    const { storeId } = parseListOptions(options);
+    const where = storeId ? "WHERE store_id = ?" : "";
+    const params = storeId ? [storeId] : [];
     const rows = await query(
         `
         SELECT
@@ -40,7 +43,9 @@ async function getCommissionLedgerSummary() {
             COALESCE(SUM(CASE WHEN entry_type = 'reversal' THEN amount ELSE 0 END), 0) AS reversed,
             ${balanceSql()} AS outstanding
         FROM platform_commission_ledger
-        `
+        ${where}
+        `,
+        params
     );
 
     return {

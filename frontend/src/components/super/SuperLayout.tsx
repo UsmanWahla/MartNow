@@ -52,8 +52,10 @@ function SuperLayout() {
     });
   }
 
-  const title = location.pathname.startsWith("/super/stores")
-    ? "Stores"
+  const title = /^\/super\/stores\/\d+/.test(location.pathname)
+    ? "Store details"
+    : location.pathname.startsWith("/super/stores")
+      ? "Stores"
     : location.pathname.startsWith("/super/deliveries")
       ? "Deliveries"
       : location.pathname.startsWith("/super/commission-ledger")

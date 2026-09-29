@@ -1,20 +1,7 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
-import AddButton from "../../components/AddButton";
-import DataTable, { type DataTableColumn } from "../../components/DataTable";
-import Field from "../../components/Field";
-import Modal from "../../components/Modal";
-import ModalActions from "../../components/ModalActions";
-import Money from "../../components/Money";
-import PagePanel from "../../components/PagePanel";
-import Select from "../../components/Select";
-import StatCard from "../../components/StatCard";
-import TableToolbar from "../../components/TableToolbar";
-import { IconLedger, IconPay, IconProfit } from "../../components/icons";
+import { useCallback, useState, type FormEvent } from "react";
 import { getApiError } from "../../auth";
 import {
   fetchPlatformCommissionLedger,
-  fetchPlatformCommissionLedgerSummary,
-  fetchPlatformStores,
   recordPlatformCommissionSettlement,
 } from "../../api";
 import useBusy from "../../hooks/useBusy";
@@ -27,9 +14,17 @@ import {
   type PlatformCommissionLedgerSummary,
   type PlatformStore,
 } from "../../types";
-import { formatPlatformOrderTime } from "../../components/super/platformOrderColumns";
-
-const emptySettlement = { storeId: "", amount: "", note: "" };
+import AddButton from "../AddButton";
+import DataTable, { type DataTableColumn } from "../DataTable";
+import Field from "../Field";
+import { IconLedger, IconPay, IconProfit } from "../icons";
+import Modal from "../Modal";
+import ModalActions from "../ModalActions";
+import Money from "../Money";
+import PagePanel from "../PagePanel";
+import StatCard from "../StatCard";
+import TableToolbar from "../TableToolbar";
+import { formatPlatformOrderTime } from "./platformOrderColumns";
 
 function entryLabel(entryType: PlatformCommissionLedgerEntry["entry_type"]) {
   if (entryType === "received") {
@@ -47,14 +42,17 @@ function entryTone(entryType: PlatformCommissionLedgerEntry["entry_type"]) {
   return entryType === "reversal" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-800";
 }
 
-function SuperCommissionLedger() {
+interface StoreCommissionTabProps {
+  store: PlatformStore;
+  summary: PlatformCommissionLedgerSummary | null;
+  onSummaryReload: () => Promise<void>;
+}
+
+function StoreCommissionTab({ store, summary, onSummaryReload }: StoreCommissionTabProps) {
   const { showToast } = useToast();
   const { busy, run } = useBusy();
-  const [stores, setStores] = useState<PlatformStore[]>([]);
-  const [storeId, setStoreId] = useState("");
-  const [summary, setSummary] = useState<PlatformCommissionLedgerSummary | null>(null);
   const [showSettlement, setShowSettlement] = useState(false);
-  const [settlement, setSettlement] = useState(emptySettlement);
+  const [settlement, setSettlement] = useState({ amount: "", note: "" });
   const {
     search,
     setSearch,
@@ -67,55 +65,16 @@ function SuperCommissionLedger() {
   } = useServerList<PlatformCommissionLedgerEntry>(
     useCallback(
       (q, nextPage) =>
-        fetchPlatformCommissionLedger({
-          q,
-          page: nextPage,
-          store_id: storeId ? Number(storeId) : undefined,
-        }),
-      [storeId]
+        fetchPlatformCommissionLedger({ q, page: nextPage, store_id: store.id }),
+      [store.id]
     ),
-    (error) => showToast(getApiError(error, "Unable to load commission ledger")),
-    storeId
+    (error) => showToast(getApiError(error, "Unable to load store commission ledger")),
+    String(store.id)
   );
-
-  const loadSummary = useCallback(async () => {
-    try {
-      setSummary(await fetchPlatformCommissionLedgerSummary());
-    } catch (loadError) {
-      showToast(getApiError(loadError, "Unable to load commission summary"));
-    }
-  }, [showToast]);
-
-  useEffect(() => {
-    async function loadInitialData() {
-      try {
-        const [storeData, summaryData] = await Promise.all([
-          fetchPlatformStores({ all: true }),
-          fetchPlatformCommissionLedgerSummary(),
-        ]);
-        setStores(storeData.rows);
-        setSummary(summaryData);
-      } catch (loadError) {
-        showToast(getApiError(loadError, "Unable to load commission ledger"));
-      }
-    }
-
-    void loadInitialData();
-  }, [showToast]);
-
-  function openSettlement() {
-    setSettlement({ ...emptySettlement, storeId });
-    setShowSettlement(true);
-  }
 
   function closeSettlement() {
     setShowSettlement(false);
-    setSettlement(emptySettlement);
-  }
-
-  function handleStoreFilter(value: string) {
-    setStoreId(value);
-    setPage(1);
+    setSettlement({ amount: "", note: "" });
   }
 
   function handleSettlement(event: FormEvent<HTMLFormElement>) {
@@ -124,11 +83,11 @@ function SuperCommissionLedger() {
     void run(async () => {
       try {
         const response = await recordPlatformCommissionSettlement({
-          store_id: Number(settlement.storeId),
+          store_id: store.id,
           amount: Number(settlement.amount),
           note: settlement.note,
         });
-        await Promise.all([reload(), loadSummary()]);
+        await Promise.all([reload(), onSummaryReload()]);
         closeSettlement();
         showToast(response.message, "success");
       } catch (saveError) {
@@ -144,13 +103,6 @@ function SuperCommissionLedger() {
       sortable: true,
       sortValue: (entry) => entry.created_at,
       render: (entry) => formatPlatformOrderTime(entry.created_at),
-    },
-    {
-      key: "store",
-      header: "Store",
-      sortable: true,
-      sortValue: (entry) => entry.store_name,
-      render: (entry) => <p className="truncate font-medium text-slate-800">{entry.store_name}</p>,
     },
     {
       key: "entry_type",
@@ -175,12 +127,7 @@ function SuperCommissionLedger() {
       header: "Amount",
       sortable: true,
       sortValue: (entry) => Number(entry.amount),
-      render: (entry) => (
-        <Money
-          value={entry.amount}
-          className={entry.entry_type === "reversal" ? "text-red-700" : "font-semibold text-slate-800"}
-        />
-      ),
+      render: (entry) => <Money value={entry.amount} className="font-semibold text-slate-800" />,
     },
     {
       key: "note",
@@ -190,10 +137,10 @@ function SuperCommissionLedger() {
   ];
 
   return (
-    <div className="flex min-w-0 flex-col gap-4 pb-8">
+    <div className="flex flex-col gap-4">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          label="Commission"
+          label="Total due"
           value={summary ? formatCardMoney(summary.due) : "—"}
           numeric={summary ? Number(summary.due) : undefined}
           formatNumeric={formatCardMoney}
@@ -230,56 +177,34 @@ function SuperCommissionLedger() {
         />
       </div>
 
+      <div className="rounded-xl border border-teal-100 bg-teal-50/70 px-4 py-3 text-sm text-teal-900">
+        Commission becomes due when an online order is delivered and its payment is collected.
+        Received payments reduce the outstanding balance. Current rate: {Number(store.commission_percent)}%.
+      </div>
+
       <PagePanel>
         <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
-          <div className="min-w-12rem sm:max-w-xs">
-            <p className="mb-1.5 text-sm font-medium text-slate-600">Store</p>
-            <Select value={storeId} onChange={handleStoreFilter}>
-              <option value="">All stores</option>
-              {stores.map((store) => (
-                <option key={store.id} value={store.id}>
-                  {store.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div className="flex flex-col items-end gap-2">
-            <AddButton label="Record payment" onClick={openSettlement} />
-            <div className="flex flex-wrap items-center gap-3">
-              <TableToolbar search={search} onSearch={setSearch} count={total} />
-            </div>
+          <AddButton label="Record payment" onClick={() => setShowSettlement(true)} />
+          <div className="flex flex-wrap items-center gap-3">
+            <TableToolbar search={search} onSearch={setSearch} count={total} />
           </div>
         </div>
         <DataTable
           rows={rows}
           columns={columns}
           rowKey={(entry) => entry.id}
-          filterKey={`${search}|${storeId}`}
+          filterKey={search}
           loading={loading}
           total={total}
           page={page}
           onPageChange={setPage}
-          emptyMessage={total === 0 && !search && !storeId ? "No commission entries yet." : "No matching commission entries."}
+          emptyMessage={total === 0 && !search ? "No commission entries for this store yet." : "No matching entries."}
         />
       </PagePanel>
 
       {showSettlement ? (
-        <Modal title="Record commission payment" onClose={busy ? () => undefined : closeSettlement}>
+        <Modal title={`Record payment · ${store.name}`} onClose={busy ? () => undefined : closeSettlement}>
           <form className="flex flex-col gap-3" onSubmit={handleSettlement}>
-            <div>
-              <label className="mb-1 block font-semibold">Store</label>
-              <Select
-                value={settlement.storeId}
-                onChange={(value) => setSettlement((current) => ({ ...current, storeId: value }))}
-              >
-                <option value="">Choose store</option>
-                {stores.map((store) => (
-                  <option key={store.id} value={store.id}>
-                    {store.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
             <Field
               label="Amount"
               type="number"
@@ -287,13 +212,13 @@ function SuperCommissionLedger() {
               step="0.01"
               placeholder="0.00"
               value={settlement.amount}
-              onChange={(value) => setSettlement((current) => ({ ...current, amount: value }))}
+              onChange={(amount) => setSettlement((current) => ({ ...current, amount }))}
             />
             <Field
               label="Note (optional)"
               placeholder="Payment reference or note"
               value={settlement.note}
-              onChange={(value) => setSettlement((current) => ({ ...current, note: value }))}
+              onChange={(note) => setSettlement((current) => ({ ...current, note }))}
             />
             <ModalActions saveLabel="Record payment" loading={busy} onCancel={closeSettlement} />
           </form>
@@ -303,4 +228,4 @@ function SuperCommissionLedger() {
   );
 }
 
-export default SuperCommissionLedger;
+export default StoreCommissionTab;

@@ -18,6 +18,7 @@ async function handleSuperRoutes(req, res) {
     const storeId = getNumericId(path, "/api/super/stores");
     const orderId = getNumericId(path, "/api/super/orders");
     const statusMatch = path.match(/^\/api\/super\/orders\/(\d+)\/status$/);
+    const storeProductsMatch = path.match(/^\/api\/super\/stores\/(\d+)\/products$/);
 
     if (req.method === "POST" && path === "/api/super/login") {
         const body = await getRequestBody(req);
@@ -53,7 +54,14 @@ async function handleSuperRoutes(req, res) {
             return true;
         }
 
-        sendJSON(req, res, 200, await commissionLedgerService.getCommissionLedgerSummary());
+        sendJSON(
+            req,
+            res,
+            200,
+            await commissionLedgerService.getCommissionLedgerSummary(
+                fromQuery(getQuery(req.url))
+            )
+        );
         return true;
     }
 
@@ -164,6 +172,36 @@ async function handleSuperRoutes(req, res) {
         }
 
         sendJSON(req, res, 200, await storeService.listStores(fromQuery(getQuery(req.url))));
+        return true;
+    }
+
+    if (req.method === "GET" && storeProductsMatch) {
+        const auth = requireSuper(req, res);
+
+        if (!auth) {
+            return true;
+        }
+
+        sendJSON(
+            req,
+            res,
+            200,
+            await storeService.listStoreProducts(
+                Number(storeProductsMatch[1]),
+                fromQuery(getQuery(req.url))
+            )
+        );
+        return true;
+    }
+
+    if (req.method === "GET" && storeId) {
+        const auth = requireSuper(req, res);
+
+        if (!auth) {
+            return true;
+        }
+
+        sendJSON(req, res, 200, await storeService.getStoreDetail(storeId));
         return true;
     }
 

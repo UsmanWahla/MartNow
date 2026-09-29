@@ -21,6 +21,8 @@ interface DataTableProps<T> {
   total?: number;
   page?: number;
   onPageChange?: (page: number) => void;
+  onRowClick?: (row: T) => void;
+  rowAriaLabel?: (row: T) => string;
 }
 
 function compareValues(left: string | number, right: string | number) {
@@ -45,6 +47,8 @@ function DataTable<T>({
   total,
   page: pageProp,
   onPageChange,
+  onRowClick,
+  rowAriaLabel,
 }: DataTableProps<T>) {
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -132,7 +136,7 @@ function DataTable<T>({
 
   return (
     <div>
-      <div className="overflow-hidden rounded-xl border border-(--hairline)">
+      <div className="overflow-x-auto rounded-xl border border-(--hairline)">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-(--hairline) bg-[#f4faf8] text-slate-600">
@@ -176,7 +180,27 @@ function DataTable<T>({
             {visibleRows.map((row) => (
               <tr
                 key={rowKey(row)}
-                className="border-b border-slate-100 last:border-b-0 transition-colors duration-150 hover:bg-teal-50/50"
+                className={`border-b border-slate-100 last:border-b-0 transition-colors duration-150 hover:bg-teal-50/50 ${
+                  onRowClick
+                    ? "cursor-pointer focus-visible:bg-teal-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal-600"
+                    : ""
+                }`}
+                role={onRowClick ? "link" : undefined}
+                tabIndex={onRowClick ? 0 : undefined}
+                aria-label={onRowClick && rowAriaLabel ? rowAriaLabel(row) : undefined}
+                onClick={onRowClick ? () => onRowClick(row) : undefined}
+                onKeyDown={
+                  onRowClick
+                    ? (event) => {
+                        if (event.key !== "Enter" && event.key !== " ") {
+                          return;
+                        }
+
+                        event.preventDefault();
+                        onRowClick(row);
+                      }
+                    : undefined
+                }
               >
                 {columns.map((column) => (
                   <td key={column.key} className="px-3 py-3 first:pl-4 last:min-w-14 last:pr-4 last:text-right">

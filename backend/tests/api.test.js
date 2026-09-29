@@ -548,6 +548,25 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
         assert.equal(Number(orders[0].user_id), tenantId);
         assert.equal(Number(orders[0].commission_percent), 10);
 
+        const storeProducts = await storeService.listStoreProducts(created.store.id, { all: true });
+        assert.equal(storeProducts.total, 1);
+        assert.equal(storeProducts.rows[0].name, "QA Mug");
+
+        const storeDetail = await storeService.getStoreDetail(created.store.id);
+        assert.equal(storeDetail.store.id, created.store.id);
+        assert.equal(storeDetail.overview.products, 1);
+        assert.equal(storeDetail.overview.stock, 3);
+        assert.equal(storeDetail.overview.online_orders, 1);
+        assert.equal(storeDetail.overview.orders, 1);
+
+        const commissionLedgerService = require("../services/commissionLedgerService");
+        const storeCommission = await commissionLedgerService.getCommissionLedgerSummary({
+            storeId: created.store.id
+        });
+        assert.equal(storeCommission.due, 0);
+        assert.equal(storeCommission.received, 0);
+        assert.equal(storeCommission.outstanding, 0);
+
         await deleteTenantData(tenantId, { storeId: created.store.id });
         await query("DELETE FROM cart_items WHERE user_id = ?", [buyer.user.id]);
         await query("DELETE FROM refresh_tokens WHERE user_id = ?", [buyer.user.id]);

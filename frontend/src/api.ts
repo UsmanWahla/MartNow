@@ -20,6 +20,7 @@ import {
   type Supplier,
   type PlatformStats,
   type PlatformStore,
+  type PlatformStoreDetail,
   type PlatformOrder,
   type PlatformCommissionLedgerEntry,
   type PlatformCommissionLedgerSummary,
@@ -652,6 +653,18 @@ export async function fetchPlatformStores(options?: ListQuery) {
   return fetchList<PlatformStore>("/api/super/stores", options);
 }
 
+export async function fetchPlatformStore(id: number) {
+  const response = await axios.get<PlatformStoreDetail>(
+    `${API_URL}/api/super/stores/${id}`,
+    { headers: authHeader() }
+  );
+  return response.data;
+}
+
+export async function fetchPlatformStoreProducts(id: number, options?: ListQuery) {
+  return fetchList<Product>(`/api/super/stores/${id}/products`, options);
+}
+
 export async function fetchPlatformOrders(options?: ListQuery) {
   return fetchList<PlatformOrder>("/api/super/orders", options);
 }
@@ -660,10 +673,13 @@ export async function fetchPlatformCommissionLedger(options?: ListQuery) {
   return fetchList<PlatformCommissionLedgerEntry>("/api/super/commission-ledger", options);
 }
 
-export async function fetchPlatformCommissionLedgerSummary() {
+export async function fetchPlatformCommissionLedgerSummary(storeId?: number) {
   const response = await axios.get<PlatformCommissionLedgerSummary>(
     `${API_URL}/api/super/commission-ledger/summary`,
-    { headers: authHeader() }
+    {
+      headers: authHeader(),
+      params: storeId ? { store_id: storeId } : undefined,
+    }
   );
   return response.data;
 }

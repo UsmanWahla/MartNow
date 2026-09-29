@@ -12,7 +12,7 @@ function ShopSearch({ slug, basePath }: { slug?: string; basePath?: string }) {
 
   return (
     <ShopSearchInput
-      key={isHome ? `home:${initialValue}` : `page:${location.pathname}`}
+      key={isHome ? "home" : `page:${location.pathname}`}
       initialValue={initialValue}
       homePath={homePath}
       isHome={isHome}

@@ -334,7 +334,7 @@ function SuperStores() {
         <div>
         <Field
           label="Store login username"
-          placeholder="e.g. arshad"
+          placeholder="e.g. ali"
           name="platform_store_owner_username"
           autoComplete="off"
           preventAutofill

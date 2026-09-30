@@ -18,6 +18,7 @@ import {
   type StaffMember,
   type StockMovement,
   type StoreType,
+  type ManagedStoreType,
   type Supplier,
   type PlatformStats,
   type PlatformStore,
@@ -40,6 +41,7 @@ export interface ListQuery {
   date_from?: string;
   date_to?: string;
   delivery_by?: "store" | "platform";
+  status?: "all" | "active" | "inactive";
 }
 
 function listParams(options?: ListQuery) {
@@ -53,6 +55,7 @@ function listParams(options?: ListQuery) {
       ...(options?.date_from ? { date_from: options.date_from } : {}),
       ...(options?.date_to ? { date_to: options.date_to } : {}),
       ...(options?.delivery_by ? { delivery_by: options.delivery_by } : {}),
+      ...(options?.status && options.status !== "all" ? { status: options.status } : {}),
     };
   }
 
@@ -64,6 +67,7 @@ function listParams(options?: ListQuery) {
     ...(options.date_from ? { date_from: options.date_from } : {}),
     ...(options.date_to ? { date_to: options.date_to } : {}),
     ...(options.delivery_by ? { delivery_by: options.delivery_by } : {}),
+    ...(options.status && options.status !== "all" ? { status: options.status } : {}),
     page: options.page ?? 1,
     limit: options.limit ?? 5,
   };
@@ -498,6 +502,37 @@ export async function fetchStoreTypes() {
     headers: authHeader(),
   });
   return response.data.rows;
+}
+
+export async function fetchManagedStoreTypes(options?: ListQuery) {
+  return fetchList<ManagedStoreType>("/api/super/store-types", options);
+}
+
+export async function createStoreType(payload: { name: string }) {
+  const response = await axios.post<{ message: string; store_type: ManagedStoreType }>(
+    `${API_URL}/api/super/store-types`,
+    payload,
+    { headers: authHeader() }
+  );
+  return response.data;
+}
+
+export async function saveStoreType(id: number, payload: { name: string }) {
+  const response = await axios.put<{ message: string; store_type: ManagedStoreType }>(
+    `${API_URL}/api/super/store-types/${id}`,
+    payload,
+    { headers: authHeader() }
+  );
+  return response.data;
+}
+
+export async function setStoreTypeStatus(id: number, isActive: boolean) {
+  const response = await axios.put<{ message: string; store_type: ManagedStoreType }>(
+    `${API_URL}/api/super/store-types/${id}/status`,
+    { is_active: isActive },
+    { headers: authHeader() }
+  );
+  return response.data;
 }
 
 export async function saveSettings(payload: ShopSettings) {

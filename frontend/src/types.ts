@@ -168,6 +168,13 @@ export interface StoreType {
   name: string;
 }
 
+export interface ManagedStoreType extends StoreType {
+  is_active: boolean;
+  store_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface PublicStore {
   id: number;
   name: string;

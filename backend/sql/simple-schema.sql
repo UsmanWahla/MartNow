@@ -32,6 +32,7 @@ CREATE TABLE store_types (
     is_active TINYINT(1) NOT NULL DEFAULT 1,
     sort_order INT NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uq_store_types_code (code),
     UNIQUE KEY uq_store_types_name (name),
     KEY idx_store_types_active_sort (is_active, sort_order, name)

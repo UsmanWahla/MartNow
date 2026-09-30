@@ -5,12 +5,13 @@ CREATE TABLE IF NOT EXISTS store_types (
     is_active TINYINT(1) NOT NULL DEFAULT 1,
     sort_order INT NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uq_store_types_code (code),
     UNIQUE KEY uq_store_types_name (name),
     KEY idx_store_types_active_sort (is_active, sort_order, name)
 );
 
-INSERT INTO store_types (code, name, is_active, sort_order) VALUES
+INSERT IGNORE INTO store_types (code, name, is_active, sort_order) VALUES
     ('mart_general', 'Mart / General Store', 1, 10),
     ('grocery_kiryana', 'Grocery / Kiryana Store', 1, 20),
     ('pharmacy_medical', 'Pharmacy / Medical Store', 1, 30),
@@ -38,11 +39,10 @@ INSERT INTO store_types (code, name, is_active, sort_order) VALUES
     ('pet_supplies', 'Pet Supplies', 1, 250),
     ('agriculture_supplies', 'Agriculture / Seeds & Fertilizer', 1, 260),
     ('wholesale_distributor', 'Wholesale / Distributor', 1, 270),
-    ('optical', 'Optical Store', 1, 280)
-ON DUPLICATE KEY UPDATE
-    name = VALUES(name),
-    is_active = VALUES(is_active),
-    sort_order = VALUES(sort_order);
+    ('optical', 'Optical Store', 1, 280);
+
+ALTER TABLE store_types
+    ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at;
 
 UPDATE stores SET store_type = 'Mart / General Store'
 WHERE store_type IS NULL OR TRIM(store_type) = '' OR store_type = 'Other';

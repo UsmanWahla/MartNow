@@ -24,6 +24,7 @@ import ShopProfile from "./pages/shop/ShopProfile";
 import SuperLogin from "./pages/super/SuperLogin";
 import SuperDashboard from "./pages/super/SuperDashboard";
 import SuperStores from "./pages/super/SuperStores";
+import SuperStoreTypes from "./pages/super/SuperStoreTypes";
 import SuperStoreDetail from "./pages/super/SuperStoreDetail";
 import SuperOrders from "./pages/super/SuperOrders";
 import SuperDeliveries from "./pages/super/SuperDeliveries";
@@ -65,6 +66,7 @@ function App() {
           <Route path="commission-ledger" element={<SuperCommissionLedger />} />
           <Route path="stores" element={<SuperStores />} />
           <Route path="stores/:id" element={<SuperStoreDetail />} />
+          <Route path="store-types" element={<SuperStoreTypes />} />
         </Route>
 
         <Route element={<Layout />}>

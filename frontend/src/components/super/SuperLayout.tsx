@@ -54,6 +54,8 @@ function SuperLayout() {
 
   const title = /^\/super\/stores\/\d+/.test(location.pathname)
     ? "Store details"
+    : location.pathname.startsWith("/super/store-types")
+      ? "Store types"
     : location.pathname.startsWith("/super/stores")
       ? "Stores"
     : location.pathname.startsWith("/super/deliveries")
@@ -97,6 +99,10 @@ function SuperLayout() {
         <NavLink to="/super/stores" className={linkClass} onClick={() => setMenuOpen(false)}>
           <IconShop className="h-4 w-4" />
           Stores
+        </NavLink>
+        <NavLink to="/super/store-types" className={linkClass} onClick={() => setMenuOpen(false)}>
+          <IconBox className="h-4 w-4" />
+          Store types
         </NavLink>
       </nav>
       <button

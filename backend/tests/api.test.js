@@ -527,6 +527,101 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
         assert.ok(storeTypesRes.data.rows.some((type) => type.name === "Bakery"));
         assert.equal(storeTypesRes.data.rows.some((type) => type.name === "Other"), false);
 
+        const blockedManageReq = mockReq({
+            method: "POST",
+            url: "/api/super/store-types",
+            headers: { cookie: cookieHeader(loginRes) },
+            body: { name: "Owner Cannot Add This" }
+        });
+        const blockedManageRes = mockRes();
+        await handleStoreTypeRoutes(blockedManageReq, blockedManageRes);
+        assert.equal(blockedManageRes.statusCode, 403);
+
+        const superToken = jwt.sign(
+            { id: 1, role: "super_admin" },
+            process.env.JWT_SECRET,
+            { expiresIn: "5m" }
+        );
+        const managedName = `QA Specialty ${Date.now()}`;
+        let managedStoreTypeId = 0;
+
+        try {
+            const createTypeReq = mockReq({
+                method: "POST",
+                url: "/api/super/store-types",
+                headers: { authorization: `Bearer ${superToken}` },
+                body: { name: managedName }
+            });
+            const createTypeRes = mockRes();
+            await handleStoreTypeRoutes(createTypeReq, createTypeRes);
+            assert.equal(createTypeRes.statusCode, 201);
+            assert.equal(createTypeRes.data.store_type.name, managedName);
+            assert.equal(createTypeRes.data.store_type.is_active, true);
+            managedStoreTypeId = createTypeRes.data.store_type.id;
+
+            const storeTypeService = require("../services/storeTypeService");
+            await assert.rejects(
+                () => storeTypeService.createStoreType({ name: managedName.toUpperCase() }),
+                (error) => error.status === 409
+            );
+            await assert.rejects(
+                () => storeTypeService.createStoreType({ name: "Other" }),
+                (error) => error.status === 400
+            );
+
+            const managedListReq = mockReq({
+                method: "GET",
+                url: `/api/super/store-types?q=${encodeURIComponent(managedName)}&page=1&limit=5`,
+                headers: { authorization: `Bearer ${superToken}` }
+            });
+            const managedListRes = mockRes();
+            await handleStoreTypeRoutes(managedListReq, managedListRes);
+            assert.equal(managedListRes.statusCode, 200);
+            assert.equal(managedListRes.data.total, 1);
+            assert.equal(managedListRes.data.rows[0].store_count, 0);
+
+            const renamedType = `${managedName} Updated`;
+            const editTypeReq = mockReq({
+                method: "PUT",
+                url: `/api/super/store-types/${managedStoreTypeId}`,
+                headers: { authorization: `Bearer ${superToken}` },
+                body: { name: renamedType }
+            });
+            const editTypeRes = mockRes();
+            await handleStoreTypeRoutes(editTypeReq, editTypeRes);
+            assert.equal(editTypeRes.statusCode, 200);
+            assert.equal(editTypeRes.data.store_type.name, renamedType);
+
+            const deactivateTypeReq = mockReq({
+                method: "PUT",
+                url: `/api/super/store-types/${managedStoreTypeId}/status`,
+                headers: { authorization: `Bearer ${superToken}` },
+                body: { is_active: false }
+            });
+            const deactivateTypeRes = mockRes();
+            await handleStoreTypeRoutes(deactivateTypeReq, deactivateTypeRes);
+            assert.equal(deactivateTypeRes.statusCode, 200);
+            assert.equal(deactivateTypeRes.data.store_type.is_active, false);
+
+            const activeAfterDeactivate = await storeTypeService.listActiveStoreTypes();
+            assert.equal(activeAfterDeactivate.rows.some((type) => type.id === managedStoreTypeId), false);
+
+            const activateTypeReq = mockReq({
+                method: "PUT",
+                url: `/api/super/store-types/${managedStoreTypeId}/status`,
+                headers: { authorization: `Bearer ${superToken}` },
+                body: { is_active: true }
+            });
+            const activateTypeRes = mockRes();
+            await handleStoreTypeRoutes(activateTypeReq, activateTypeRes);
+            assert.equal(activateTypeRes.statusCode, 200);
+            assert.equal(activateTypeRes.data.store_type.is_active, true);
+        } finally {
+            if (managedStoreTypeId) {
+                await query("DELETE FROM store_types WHERE id = ?", [managedStoreTypeId]);
+            }
+        }
+
         const cashierLoginReq = mockReq({
             method: "POST",
             url: "/api/login",
@@ -603,6 +698,11 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
             store_type_id: bakeryType.id
         });
         assert.equal(typed.store.store_type, "Bakery");
+
+        await assert.rejects(
+            () => storeTypeService.setStoreTypeActive(bakeryType.id, false),
+            (error) => error.status === 409 && error.message.includes("before deactivating")
+        );
 
         const logoRemoved = await storeService.updateStore(created.store.id, {
             remove_logo: true

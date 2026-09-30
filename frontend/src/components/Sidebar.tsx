@@ -2,6 +2,7 @@ import { NavLink } from "react-router-dom";
 import {
   IconBox,
   IconDashboard,
+  IconLedger,
   IconLogout,
   IconProfit,
   IconSettings,
@@ -14,6 +15,7 @@ import {
   canManagePeople,
   canManageStock,
   canOpenSettings,
+  canViewCommission,
   getRole,
 } from "../roles";
 import type { ReactNode } from "react";
@@ -50,6 +52,9 @@ function Sidebar({ onLogout, onNavigate }: SidebarProps) {
       : []),
     ...(canManagePeople(role)
       ? [{ to: "/expenses", label: "Expenses", icon: <IconProfit className="h-4 w-4" /> }]
+      : []),
+    ...(canViewCommission(role)
+      ? [{ to: "/commission", label: "Commission", icon: <IconLedger className="h-4 w-4" /> }]
       : []),
     ...(canOpenSettings(role)
       ? [{ to: "/settings", label: "Settings", icon: <IconSettings className="h-4 w-4" /> }]

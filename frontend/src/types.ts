@@ -262,6 +262,12 @@ export interface PlatformCommissionLedgerSummary {
   outstanding: number | string;
 }
 
+export interface StoreCommissionSummary extends PlatformCommissionLedgerSummary {
+  store_id: number | null;
+  store_name: string;
+  commission_percent: number | string;
+}
+
 export type PlatformOrderKind = "online" | "walkin";
 
 export interface PlatformOrder {

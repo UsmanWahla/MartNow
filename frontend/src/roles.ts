@@ -20,6 +20,10 @@ export function canSeeProfit(role?: Role | string | null) {
   return canManageCatalog(role);
 }
 
+export function canViewCommission(role?: Role | string | null) {
+  return canManageCatalog(role);
+}
+
 export function canEditSales(role?: Role | string | null) {
   return canManageCatalog(role);
 }

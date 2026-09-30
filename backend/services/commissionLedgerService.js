@@ -113,6 +113,53 @@ async function resolveStoreId(tenantUserId) {
     return Number(stores[0].id);
 }
 
+async function getTenantStore(tenantUserId) {
+    const stores = await query(
+        `
+        SELECT id, name, commission_percent
+        FROM stores
+        WHERE tenant_user_id = ?
+        LIMIT 1
+        `,
+        [tenantUserId]
+    );
+
+    return stores[0] || null;
+}
+
+async function getStoreCommissionSummary(tenantUserId) {
+    const store = await getTenantStore(tenantUserId);
+
+    if (!store) {
+        return {
+            store_id: null,
+            store_name: "",
+            commission_percent: 0,
+            due: 0,
+            received: 0,
+            reversed: 0,
+            outstanding: 0
+        };
+    }
+
+    return {
+        store_id: Number(store.id),
+        store_name: store.name,
+        commission_percent: Number(store.commission_percent || 0),
+        ...(await getCommissionLedgerSummary({ storeId: store.id }))
+    };
+}
+
+async function listStoreCommissionLedger(tenantUserId, options = {}) {
+    const store = await getTenantStore(tenantUserId);
+
+    if (!store) {
+        return { rows: [], total: 0 };
+    }
+
+    return listCommissionLedger({ ...options, storeId: Number(store.id) });
+}
+
 async function accrueCommissionDue(order) {
     const fee = toMoney(order.platform_fee);
 
@@ -236,6 +283,8 @@ module.exports = {
     accrueCommissionDue,
     reverseCommissionDue,
     getCommissionLedgerSummary,
+    getStoreCommissionSummary,
     listCommissionLedger,
+    listStoreCommissionLedger,
     recordCommissionSettlement
 };

@@ -10,6 +10,7 @@ import Orders from "./pages/Orders";
 import Customers from "./pages/Customers";
 import Suppliers from "./pages/Suppliers";
 import Expenses from "./pages/Expenses";
+import Commission from "./pages/Commission";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
 import ShopHome from "./pages/shop/ShopHome";
@@ -75,6 +76,7 @@ function App() {
           <Route path="/customers" element={<Customers />} />
           <Route path="/suppliers" element={<Suppliers />} />
           <Route path="/expenses" element={<Expenses />} />
+          <Route path="/commission" element={<Commission />} />
           <Route path="/settings" element={<Settings />} />
         </Route>
       </Routes>

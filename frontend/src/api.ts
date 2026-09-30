@@ -24,6 +24,7 @@ import {
   type PlatformOrder,
   type PlatformCommissionLedgerEntry,
   type PlatformCommissionLedgerSummary,
+  type StoreCommissionSummary,
   type PublicStore,
 } from "./types";
 
@@ -699,6 +700,18 @@ export async function fetchPlatformOrders(options?: ListQuery) {
 
 export async function fetchPlatformCommissionLedger(options?: ListQuery) {
   return fetchList<PlatformCommissionLedgerEntry>("/api/super/commission-ledger", options);
+}
+
+export async function fetchStoreCommissionLedger(options?: ListQuery) {
+  return fetchList<PlatformCommissionLedgerEntry>("/api/commission", options);
+}
+
+export async function fetchStoreCommissionSummary() {
+  const response = await axios.get<StoreCommissionSummary>(
+    `${API_URL}/api/commission/summary`,
+    { headers: authHeader() }
+  );
+  return response.data;
 }
 
 export async function fetchPlatformCommissionLedgerSummary(storeId?: number) {

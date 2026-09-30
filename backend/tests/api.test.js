@@ -433,6 +433,7 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
     it("sets httpOnly cookies on login and allows cookie auth", async () => {
         const { Readable } = require("node:stream");
         const handleAuthRoutes = require("../routes/auth");
+        const handleCommissionRoutes = require("../routes/commission");
         const handleProductRoutes = require("../routes/products");
 
         function mockReq({ method, url, headers = {}, body }) {
@@ -503,6 +504,17 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
         assert.ok(Array.isArray(listRes.data.rows));
         assert.equal(typeof listRes.data.total, "number");
 
+        const commissionReq = mockReq({
+            method: "GET",
+            url: "/api/commission/summary",
+            headers: { cookie: cookieHeader(loginRes) }
+        });
+        const commissionRes = mockRes();
+        await handleCommissionRoutes(commissionReq, commissionRes);
+        assert.equal(commissionRes.statusCode, 200);
+        assert.equal(commissionRes.data.commission_percent, 0);
+        assert.equal(commissionRes.data.outstanding, 0);
+
         const cashierLoginReq = mockReq({
             method: "POST",
             url: "/api/login",
@@ -521,6 +533,15 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
         const blockedRes = mockRes();
         await handleProductRoutes(blockedReq, blockedRes);
         assert.equal(blockedRes.statusCode, 403);
+
+        const blockedCommissionReq = mockReq({
+            method: "GET",
+            url: "/api/commission/summary",
+            headers: { cookie: cookieHeader(cashierLoginRes) }
+        });
+        const blockedCommissionRes = mockRes();
+        await handleCommissionRoutes(blockedCommissionReq, blockedCommissionRes);
+        assert.equal(blockedCommissionRes.statusCode, 403);
     });
 
     it("lets a platform customer shop a store created by super admin APIs", async () => {
@@ -682,6 +703,36 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
         assert.equal(storeCommission.due, 0);
         assert.equal(storeCommission.received, 0);
         assert.equal(storeCommission.outstanding, 0);
+
+        const orderService = require("../services/orderService");
+        await orderService.updateOrderStatus(tenantId, order.id, "delivered");
+
+        const chargedSummary = await commissionLedgerService.getStoreCommissionSummary(tenantId);
+        const expectedCommission = Number(orders[0].platform_fee);
+        assert.equal(chargedSummary.store_id, created.store.id);
+        assert.equal(chargedSummary.commission_percent, 10);
+        assert.equal(chargedSummary.due, expectedCommission);
+        assert.equal(chargedSummary.received, 0);
+        assert.equal(chargedSummary.outstanding, expectedCommission);
+
+        const ownLedger = await commissionLedgerService.listStoreCommissionLedger(tenantId, {
+            all: true,
+            storeId: created.store.id + 9999
+        });
+        assert.equal(ownLedger.total, 1);
+        assert.ok(ownLedger.rows.every((entry) => entry.store_id === created.store.id));
+
+        await commissionLedgerService.recordCommissionSettlement(
+            {
+                store_id: created.store.id,
+                amount: 3,
+                note: "QA commission payment"
+            },
+            userId
+        );
+        const settledSummary = await commissionLedgerService.getStoreCommissionSummary(tenantId);
+        assert.equal(settledSummary.received, 3);
+        assert.equal(settledSummary.outstanding, expectedCommission - 3);
 
         await deleteTenantData(tenantId, { storeId: created.store.id });
         await query("DELETE FROM cart_items WHERE user_id = ?", [buyer.user.id]);

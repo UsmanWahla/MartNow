@@ -118,7 +118,12 @@ function ShopProductCard({ slug, product, tone = 0 }: ShopProductCardProps) {
           </h2>
         </Link>
         <div className="mt-auto flex items-center justify-between gap-2 pt-2">
-          <Money value={product.price} className="text-[15px] font-semibold text-teal-800 sm:text-base" />
+          <p className="text-[15px] font-semibold text-teal-800 sm:text-base">
+            <Money value={product.price} />
+            <span className="ml-1 text-[10px] font-medium text-teal-700/70">
+              / {product.sale_unit || "piece"}
+            </span>
+          </p>
           <Link
             to={productPath}
             className="rounded-lg bg-teal-700 px-2.5 py-1.5 text-[11px] font-semibold text-white hover:bg-teal-800"

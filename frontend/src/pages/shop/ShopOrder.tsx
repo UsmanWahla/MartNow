@@ -7,6 +7,7 @@ import type { ShopOrder } from "../../types";
 import { onlineOrderStatusLabel } from "../../types";
 import type { ShopOutlet } from "../../components/shop/ShopLayout";
 import ShopOrderTimeline from "../../components/shop/ShopOrderTimeline";
+import { formatQuantity } from "../../productUnits";
 
 function ShopOrderPage() {
   const { slug = "", id = "" } = useParams();
@@ -67,7 +68,7 @@ function ShopOrderPage() {
               {item.color || item.size
                 ? ` · ${[item.color, item.size].filter(Boolean).join(" / ")}`
                 : ""}{" "}
-              × {item.quantity}
+              × {formatQuantity(item.quantity)} {item.sale_unit || "piece"}
             </span>
             <Money value={item.total_amount} />
           </li>

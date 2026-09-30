@@ -16,6 +16,7 @@ import { useToast } from "../../hooks/useToast";
 import useBusy from "../../hooks/useBusy";
 import { useFieldErrors } from "../../hooks/useFieldErrors";
 import type { ShopCart } from "../../types";
+import { formatQuantity } from "../../productUnits";
 import {
   collectFieldErrors,
   emailMessage,
@@ -258,7 +259,9 @@ function ShopCheckout() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-xs font-medium text-slate-800">{item.name}</p>
-                    <p className="text-[10px] text-slate-500">× {item.quantity}</p>
+                    <p className="text-[10px] text-slate-500">
+                      × {formatQuantity(item.quantity)} {item.sale_unit || "piece"}
+                    </p>
                   </div>
                   <Money value={item.line_total} className="shrink-0 text-xs font-semibold text-teal-900" />
                 </li>

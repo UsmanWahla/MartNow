@@ -100,6 +100,11 @@ export async function createProduct(payload: {
   colors?: { name: string; hex: string }[];
   sizes?: string[];
   variants?: { color: string; size: string; stock: number }[];
+  inventory_type: Product["inventory_type"];
+  base_unit: string;
+  sale_unit: string;
+  quantity_step: number;
+  units_per_sale_unit: number;
 }) {
   const form = new FormData();
   form.append("name", payload.name);
@@ -110,6 +115,11 @@ export async function createProduct(payload: {
   form.append("description", payload.description || "");
   form.append("category", payload.category || "");
   form.append("featured", payload.featured ? "1" : "0");
+  form.append("inventory_type", payload.inventory_type || "unit");
+  form.append("base_unit", payload.base_unit);
+  form.append("sale_unit", payload.sale_unit);
+  form.append("quantity_step", String(payload.quantity_step));
+  form.append("units_per_sale_unit", String(payload.units_per_sale_unit));
   form.append("colors", JSON.stringify(payload.colors || []));
   form.append("sizes", JSON.stringify(payload.sizes || []));
   form.append("variants", JSON.stringify(payload.variants || []));
@@ -141,6 +151,11 @@ export async function saveProduct(
     sizes?: string[];
     keep_image_ids?: number[];
     keep_image_paths?: string[];
+    inventory_type: Product["inventory_type"];
+    base_unit: string;
+    sale_unit: string;
+    quantity_step: number;
+    units_per_sale_unit: number;
   }
 ) {
   const form = new FormData();
@@ -151,6 +166,11 @@ export async function saveProduct(
   form.append("description", payload.description || "");
   form.append("category", payload.category || "");
   form.append("featured", payload.featured ? "1" : "0");
+  form.append("inventory_type", payload.inventory_type || "unit");
+  form.append("base_unit", payload.base_unit);
+  form.append("sale_unit", payload.sale_unit);
+  form.append("quantity_step", String(payload.quantity_step));
+  form.append("units_per_sale_unit", String(payload.units_per_sale_unit));
 
   if (payload.colors) {
     form.append("colors", JSON.stringify(payload.colors));
@@ -278,6 +298,10 @@ export async function createStockMovement(payload: {
   supplier_id?: number;
   color?: string;
   size?: string;
+  quantity_unit?: string;
+  unit_cost?: number;
+  new_sale_price?: number;
+  received_at?: string;
 }) {
   const response = await axios.post<{ message: string; product: Product }>(
     `${API_URL}/api/stock`,
@@ -297,6 +321,10 @@ export async function saveStockMovement(
     supplier_id?: number;
     color?: string;
     size?: string;
+    quantity_unit?: string;
+    unit_cost?: number;
+    new_sale_price?: number;
+    received_at?: string;
   }
 ) {
   const response = await axios.put<{

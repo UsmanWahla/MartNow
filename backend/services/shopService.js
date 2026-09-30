@@ -39,7 +39,9 @@ async function listShopProducts(slug, options = {}) {
 
     const countRows = await query(`SELECT COUNT(*) AS n FROM products ${where}`, params);
     const rows = await query(
-        `SELECT id, name, sku, price, stock, image_path, description, category, featured FROM products ${where} ORDER BY featured DESC, id DESC ${limitSql}`,
+        `SELECT id, name, sku, price, stock, image_path, description, category, featured,
+                inventory_type, base_unit, sale_unit, quantity_step, units_per_sale_unit
+         FROM products ${where} ORDER BY featured DESC, id DESC ${limitSql}`,
         params
     );
 
@@ -57,7 +59,8 @@ async function getShopProduct(slug, productId) {
     const shop = await getShopBySlug(slug);
     const rows = await query(
         `
-        SELECT id, name, sku, price, stock, image_path, description, category, featured
+        SELECT id, name, sku, price, stock, image_path, description, category, featured,
+               inventory_type, base_unit, sale_unit, quantity_step, units_per_sale_unit
         FROM products
         WHERE id = ? AND user_id = ?
         `,

@@ -10,6 +10,7 @@ import LowStockBadge from "../LowStockBadge";
 import Money from "../Money";
 import PagePanel from "../PagePanel";
 import TableToolbar from "../TableToolbar";
+import { formatQuantity, saleStock, unitLabel } from "../../productUnits";
 
 function StoreProductsTab({ storeId }: { storeId: number }) {
   const { showToast } = useToast();
@@ -71,8 +72,9 @@ function StoreProductsTab({ storeId }: { storeId: number }) {
       render: (product) => (
         <div className="whitespace-nowrap">
           <Money value={product.price} className="font-semibold text-slate-800" />
+          <span className="text-xs text-slate-500"> / {product.sale_unit || "piece"}</span>
           <p className="text-xs text-slate-500">
-            Cost <Money value={product.cost_price || 0} />
+            Cost <Money value={product.cost_price || 0} /> / {product.base_unit || "piece"}
           </p>
         </div>
       ),
@@ -84,8 +86,10 @@ function StoreProductsTab({ storeId }: { storeId: number }) {
       sortValue: (product) => Number(product.stock),
       render: (product) => (
         <div className="flex items-center gap-2">
-          <span className="font-ledger">{product.stock}</span>
-          <LowStockBadge stock={weakestStock(product)} />
+          <span className="font-ledger">
+            {formatQuantity(product.stock)} {unitLabel(product.base_unit, Number(product.stock))}
+          </span>
+          <LowStockBadge stock={saleStock(product, weakestStock(product))} />
         </div>
       ),
     },

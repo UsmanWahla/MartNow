@@ -9,6 +9,9 @@ DROP TABLE IF EXISTS product_images;
 DROP TABLE IF EXISTS product_colors;
 DROP TABLE IF EXISTS product_sizes;
 DROP TABLE IF EXISTS product_variants;
+DROP TABLE IF EXISTS sale_item_allocations;
+DROP TABLE IF EXISTS stock_movement_allocations;
+DROP TABLE IF EXISTS inventory_batches;
 DROP TABLE IF EXISTS sale_items;
 DROP TABLE IF EXISTS refresh_tokens;
 DROP TABLE IF EXISTS stock_movements;
@@ -26,8 +29,13 @@ CREATE TABLE products (
     name VARCHAR(100) NOT NULL,
     sku VARCHAR(50) NULL,
     price DECIMAL(10, 2) NOT NULL,
-    cost_price DECIMAL(10, 2) NOT NULL DEFAULT 0,
-    stock INT NOT NULL DEFAULT 0,
+    cost_price DECIMAL(14, 4) NOT NULL DEFAULT 0,
+    stock DECIMAL(14, 3) NOT NULL DEFAULT 0,
+    inventory_type VARCHAR(20) NOT NULL DEFAULT 'unit',
+    base_unit VARCHAR(20) NOT NULL DEFAULT 'piece',
+    sale_unit VARCHAR(20) NOT NULL DEFAULT 'piece',
+    quantity_step DECIMAL(14, 3) NOT NULL DEFAULT 1.000,
+    units_per_sale_unit DECIMAL(14, 3) NOT NULL DEFAULT 1.000,
     image_path VARCHAR(255) NULL,
     description VARCHAR(500) NULL,
     category VARCHAR(60) NULL,
@@ -74,7 +82,7 @@ CREATE TABLE product_variants (
     product_id INT NOT NULL,
     color VARCHAR(40) NOT NULL DEFAULT '',
     size VARCHAR(40) NOT NULL DEFAULT '',
-    stock INT NOT NULL DEFAULT 0,
+    stock DECIMAL(14, 3) NOT NULL DEFAULT 0,
     FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
     UNIQUE KEY uq_product_variant (product_id, color, size)
 );
@@ -110,7 +118,7 @@ CREATE TABLE sales (
     -- leftover: lines live in sale_items; kept nullable for old rows
     product_id INT NULL,
     customer_id INT NULL,
-    quantity INT NOT NULL DEFAULT 0,
+    quantity DECIMAL(14, 3) NOT NULL DEFAULT 0,
     unit_price DECIMAL(10, 2) NOT NULL DEFAULT 0,
     unit_cost DECIMAL(10, 2) NOT NULL DEFAULT 0,
     total_amount DECIMAL(10, 2) NOT NULL,
@@ -128,7 +136,10 @@ CREATE TABLE sale_items (
     id INT AUTO_INCREMENT PRIMARY KEY,
     sale_id INT NOT NULL,
     product_id INT NOT NULL,
-    quantity INT NOT NULL,
+    quantity DECIMAL(14, 3) NOT NULL,
+    base_quantity DECIMAL(14, 3) NULL,
+    sale_unit VARCHAR(20) NOT NULL DEFAULT 'piece',
+    unit_conversion DECIMAL(14, 3) NOT NULL DEFAULT 1.000,
     unit_price DECIMAL(10, 2) NOT NULL DEFAULT 0,
     unit_cost DECIMAL(10, 2) NOT NULL DEFAULT 0,
     total_amount DECIMAL(10, 2) NOT NULL,
@@ -147,7 +158,8 @@ CREATE TABLE stock_movements (
     product_id INT NOT NULL,
     supplier_id INT NULL,
     type VARCHAR(20) NOT NULL,
-    quantity INT NOT NULL,
+    quantity DECIMAL(14, 3) NOT NULL,
+    unit_cost DECIMAL(14, 4) NULL,
     note TEXT NULL,
     created_by INT NOT NULL,
     color VARCHAR(40) NOT NULL DEFAULT '',
@@ -158,6 +170,55 @@ CREATE TABLE stock_movements (
     FOREIGN KEY (supplier_id) REFERENCES suppliers(id),
     FOREIGN KEY (created_by) REFERENCES users(id),
     KEY idx_stock_created (created_at)
+);
+
+CREATE TABLE inventory_batches (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    product_id INT NOT NULL,
+    stock_movement_id INT NULL,
+    supplier_id INT NULL,
+    color VARCHAR(40) NOT NULL DEFAULT '',
+    size VARCHAR(40) NOT NULL DEFAULT '',
+    initial_quantity DECIMAL(14, 3) NOT NULL,
+    remaining_quantity DECIMAL(14, 3) NOT NULL,
+    unit_cost DECIMAL(14, 4) NOT NULL DEFAULT 0,
+    received_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+    FOREIGN KEY (stock_movement_id) REFERENCES stock_movements(id) ON DELETE SET NULL,
+    FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE SET NULL,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+    UNIQUE KEY uq_inventory_batch_movement (stock_movement_id),
+    KEY idx_inventory_batch_fifo (user_id, product_id, color, size, received_at, id),
+    KEY idx_inventory_batch_remaining (product_id, remaining_quantity)
+);
+
+CREATE TABLE sale_item_allocations (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    sale_item_id INT NOT NULL,
+    batch_id INT NOT NULL,
+    quantity DECIMAL(14, 3) NOT NULL,
+    unit_cost DECIMAL(14, 4) NOT NULL,
+    cost_amount DECIMAL(14, 2) NOT NULL,
+    FOREIGN KEY (sale_item_id) REFERENCES sale_items(id) ON DELETE CASCADE,
+    FOREIGN KEY (batch_id) REFERENCES inventory_batches(id),
+    KEY idx_sale_allocations_item (sale_item_id),
+    KEY idx_sale_allocations_batch (batch_id)
+);
+
+CREATE TABLE stock_movement_allocations (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    stock_movement_id INT NOT NULL,
+    batch_id INT NOT NULL,
+    quantity DECIMAL(14, 3) NOT NULL,
+    unit_cost DECIMAL(14, 4) NOT NULL,
+    FOREIGN KEY (stock_movement_id) REFERENCES stock_movements(id) ON DELETE CASCADE,
+    FOREIGN KEY (batch_id) REFERENCES inventory_batches(id),
+    KEY idx_stock_allocations_movement (stock_movement_id),
+    KEY idx_stock_allocations_batch (batch_id)
 );
 
 CREATE TABLE expenses (
@@ -186,7 +247,7 @@ CREATE TABLE cart_items (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     product_id INT NOT NULL,
-    quantity INT NOT NULL DEFAULT 1,
+    quantity DECIMAL(14, 3) NOT NULL DEFAULT 1,
     color VARCHAR(40) NOT NULL DEFAULT '',
     size VARCHAR(40) NOT NULL DEFAULT '',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

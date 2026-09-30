@@ -12,6 +12,7 @@ import { useToast } from "../../hooks/useToast";
 import useBusy from "../../hooks/useBusy";
 import type { Product } from "../../types";
 import { findVariantStock, hasVariantOptions, variantLabel } from "../../variantStock";
+import { formatQuantity, productStep, saleStock, unitLabel } from "../../productUnits";
 
 function ShopProduct() {
   const { slug = "", id = "" } = useParams();
@@ -37,7 +38,7 @@ function ShopProduct() {
         setZoomOpen(false);
         setColor("");
         setSize("");
-        setQuantity(1);
+        setQuantity(productStep(data.product));
         setOptionError("");
         setError("");
       } catch (loadError) {
@@ -51,11 +52,12 @@ function ShopProduct() {
   const needsColor = Boolean(product?.colors?.length);
   const needsSize = Boolean(product?.sizes?.length);
   const optionReady = (!needsColor || Boolean(color)) && (!needsSize || Boolean(size));
-  const available = product
+  const availableBase = product
     ? optionReady
       ? findVariantStock(product, color, size)
       : Number(product.stock)
     : 1;
+  const available = product ? saleStock(product, availableBase) : 1;
 
   function missingOptionMessage() {
     if (needsColor && !color && needsSize && !size) {
@@ -70,7 +72,8 @@ function ShopProduct() {
     return "";
   }
 
-  const selectedQuantity = Math.min(quantity, Math.max(1, available));
+  const step = productStep(product);
+  const selectedQuantity = Math.min(quantity, Math.max(step, available));
 
   async function handleAdd() {
     if (!isShopperSession()) {
@@ -222,6 +225,9 @@ function ShopProduct() {
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-teal-800/70">Price</p>
                 <p className="mt-0.5 text-xl font-semibold text-teal-900">
                   <Money value={product.price} />
+                  <span className="ml-1 text-xs font-medium text-teal-800/70">
+                    / {product.sale_unit || "piece"}
+                  </span>
                 </p>
               </div>
               <div className={`rounded-xl px-3 py-2.5 ${available <= 0 ? "bg-orange-50" : "bg-[#e7f4e4]"}`}>
@@ -231,7 +237,7 @@ function ShopProduct() {
                     ? `Choose ${needsColor && needsSize ? "color & size" : needsColor ? "a color" : "a size"}`
                     : available <= 0
                       ? "Out of stock"
-                      : `${available} in stock`}
+                      : `${formatQuantity(available)} ${unitLabel(product.sale_unit, available)} in stock`}
                 </p>
                 {variantLabel(color, size) ? (
                   <p className="mt-0.5 text-xs font-medium text-teal-800">{variantLabel(color, size)}</p>
@@ -324,8 +330,9 @@ function ShopProduct() {
               <ShopQtyStepper
                 size="sm"
                 value={selectedQuantity}
-                min={1}
-                max={Math.max(1, available)}
+                min={step}
+                max={Math.max(step, available)}
+                step={step}
                 disabled={outOfStock || busy}
                 onChange={setQuantity}
               />
@@ -345,6 +352,11 @@ function ShopProduct() {
                       : "Add to cart"}
               </ShopButton>
             </form>
+            {!outOfStock && optionReady ? (
+              <p className="mt-2 text-right text-sm font-semibold text-teal-900">
+                Total: <Money value={Number(product.price) * selectedQuantity} />
+              </p>
+            ) : null}
             {optionError ? (
               <p className="mt-2 text-sm font-medium text-red-600">{optionError}</p>
             ) : null}

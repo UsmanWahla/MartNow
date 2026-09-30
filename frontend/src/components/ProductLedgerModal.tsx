@@ -4,6 +4,7 @@ import { getApiError } from "../auth";
 import { fetchProductLedger } from "../api";
 import type { Product, ProductLedger } from "../types";
 import { variantLabel } from "../variantStock";
+import { formatQuantity, unitLabel } from "../productUnits";
 
 const TYPE_LABELS: Record<string, string> = {
   opening: "Opening",
@@ -66,19 +67,19 @@ function ProductLedgerModal({ product, onClose, onError }: ProductLedgerModalPro
         <div className="rounded-xl bg-slate-50 px-2 py-2">
           <p className="text-slate-500">On hand</p>
           <p className="font-ledger mt-0.5 text-sm font-semibold text-slate-900">
-            {onHand}
+            {formatQuantity(onHand)} {unitLabel(ledger?.product.base_unit || product.base_unit, onHand)}
           </p>
         </div>
         <div className="rounded-xl bg-teal-50 px-2 py-2">
           <p className="text-teal-700">In</p>
           <p className="font-ledger mt-0.5 text-sm font-semibold text-teal-800">
-            {ledger?.totalIn ?? "—"}
+            {ledger ? formatQuantity(ledger.totalIn) : "—"} {ledger ? unitLabel(ledger.product.base_unit, ledger.totalIn) : ""}
           </p>
         </div>
         <div className="rounded-xl bg-orange-50 px-2 py-2">
           <p className="text-orange-700">Out</p>
           <p className="font-ledger mt-0.5 text-sm font-semibold text-orange-800">
-            {ledger?.totalOut ?? "—"}
+            {ledger ? formatQuantity(ledger.totalOut) : "—"} {ledger ? unitLabel(ledger.product.base_unit, ledger.totalOut) : ""}
           </p>
         </div>
       </div>
@@ -91,7 +92,7 @@ function ProductLedgerModal({ product, onClose, onError }: ProductLedgerModalPro
               key={`${row.color}-${row.size}`}
               className="rounded-lg bg-slate-50 px-2 py-1 text-[11px] font-medium text-slate-600"
             >
-              {variantLabel(row.color, row.size) || "Default"} · {row.stock}
+              {variantLabel(row.color, row.size) || "Default"} · {formatQuantity(row.stock)}
             </span>
           ))}
         </div>
@@ -138,10 +139,11 @@ function ProductLedgerModal({ product, onClose, onError }: ProductLedgerModalPro
                       change > 0 ? "text-teal-700" : "text-orange-700"
                     }`}
                   >
-                    {change > 0 ? `+${change}` : change}
+                    {change > 0 ? `+${formatQuantity(change)}` : formatQuantity(change)}{" "}
+                    {unitLabel(ledger?.product.base_unit, Math.abs(change))}
                   </p>
                   <p className="font-ledger mt-0.5 text-xs text-slate-500">
-                    Bal {row.balance}
+                    Bal {formatQuantity(row.balance)}
                   </p>
                 </div>
               </li>

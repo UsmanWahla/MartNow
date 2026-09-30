@@ -6,6 +6,7 @@ interface FieldProps {
   placeholder?: string;
   disabled?: boolean;
   min?: string | number;
+  max?: string | number;
   step?: string | number;
   className?: string;
   error?: string;
@@ -22,6 +23,7 @@ function Field({
   placeholder,
   disabled,
   min,
+  max,
   step,
   className = "field-input",
   error,
@@ -41,6 +43,7 @@ function Field({
         placeholder={placeholder}
         disabled={disabled}
         min={min}
+        max={max}
         step={step}
         readOnly={preventAutofill}
         aria-invalid={Boolean(error)}

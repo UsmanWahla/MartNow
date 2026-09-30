@@ -39,6 +39,7 @@ async function withItems(order) {
                 sale_items.product_id,
                 products.name AS product,
                 sale_items.quantity,
+                sale_items.sale_unit,
                 sale_items.unit_price,
                 sale_items.total_amount,
                 sale_items.color,

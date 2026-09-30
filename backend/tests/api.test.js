@@ -201,15 +201,15 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
         const afterExpense = await dashboardService.getStats(userId, "all");
         assert.equal(afterExpense.billed, 35);
         assert.equal(afterExpense.collected, 30);
-        assert.equal(afterExpense.revenue, 30);
+        assert.equal(afterExpense.revenue, 35);
         assert.equal(afterExpense.udhaar, 5);
         assert.equal(afterExpense.debtors.length, 1);
         assert.equal(afterExpense.debtors[0].name, "Ali");
         assert.equal(afterExpense.debtors[0].balance, 5);
-        assert.equal(afterExpense.cost, 17.33);
-        assert.equal(afterExpense.profit, 12.67);
+        assert.equal(afterExpense.cost, 20);
+        assert.equal(afterExpense.profit, 15);
         assert.equal(afterExpense.expenses, 3);
-        assert.equal(afterExpense.netProfit, 9.67);
+        assert.equal(afterExpense.netProfit, 12);
 
         await customerService.payCustomer(userId, customer.customer.id, 5);
         const afterPay = await dashboardService.getStats(userId, "all");
@@ -261,6 +261,122 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
             ["owner", "manager"]
         );
         assert.equal(blocked, null);
+    });
+
+    it("uses decimal units and FIFO costs across purchase batches and variants", async () => {
+        const mango = await productService.addProduct(userId, {
+            name: "FIFO Mango",
+            price: 700,
+            cost_price: 500,
+            stock: 10,
+            inventory_type: "weight",
+            base_unit: "kg",
+            sale_unit: "kg",
+            quantity_step: 0.5,
+            units_per_sale_unit: 1
+        });
+
+        const firstSale = await saleService.addSale(userId, {
+            product_id: mango.product.id,
+            quantity: 5
+        });
+        assert.equal(Number(firstSale.sale.cost_amount), 2500);
+        assert.equal(Number(firstSale.product.stock), 5);
+
+        await stockService.addMovement(userId, userId, {
+            product_id: mango.product.id,
+            type: "in",
+            quantity: 10,
+            quantity_unit: "kg",
+            unit_cost: 600,
+            new_sale_price: 800
+        });
+
+        const mixedSale = await saleService.addSale(userId, {
+            product_id: mango.product.id,
+            quantity: 6
+        });
+        assert.equal(Number(mixedSale.sale.total_amount), 4800);
+        assert.equal(Number(mixedSale.sale.cost_amount), 3100);
+        assert.equal(Number(mixedSale.product.stock), 9);
+
+        const batchesAfterSale = await query(
+            `
+            SELECT initial_quantity, remaining_quantity, unit_cost
+            FROM inventory_batches
+            WHERE product_id = ?
+            ORDER BY received_at, id
+            `,
+            [mango.product.id]
+        );
+        assert.deepEqual(
+            batchesAfterSale.map((row) => [
+                Number(row.initial_quantity),
+                Number(row.remaining_quantity),
+                Number(row.unit_cost)
+            ]),
+            [[10, 0, 500], [10, 9, 600]]
+        );
+
+        await saleService.deleteSale(userId, mixedSale.sale.id);
+        const halfKilo = await saleService.addSale(userId, {
+            product_id: mango.product.id,
+            quantity: 0.5
+        });
+        assert.equal(Number(halfKilo.sale.total_amount), 400);
+        assert.equal(Number(halfKilo.sale.cost_amount), 250);
+        assert.equal(Number(halfKilo.product.stock), 14.5);
+
+        const shirt = await productService.addProduct(userId, {
+            name: "FIFO Shirt",
+            price: 300,
+            cost_price: 100,
+            stock: 2,
+            inventory_type: "unit",
+            base_unit: "piece",
+            sale_unit: "piece",
+            quantity_step: 1,
+            units_per_sale_unit: 1,
+            colors: [{ name: "Black", hex: "#111827" }],
+            sizes: ["M"],
+            variants: [{ color: "Black", size: "M", stock: 2 }]
+        });
+        await stockService.addMovement(userId, userId, {
+            product_id: shirt.product.id,
+            type: "in",
+            quantity: 2,
+            unit_cost: 150,
+            color: "Black",
+            size: "M"
+        });
+        const shirtSale = await saleService.addSale(userId, {
+            items: [{
+                product_id: shirt.product.id,
+                quantity: 3,
+                color: "Black",
+                size: "M"
+            }]
+        });
+        assert.equal(Number(shirtSale.sale.cost_amount), 350);
+        assert.equal(Number(shirtSale.product.stock), 1);
+
+        const eggs = await productService.addProduct(userId, {
+            name: "FIFO Eggs",
+            price: 300,
+            cost_price: 10,
+            stock: 24,
+            inventory_type: "pack",
+            base_unit: "piece",
+            sale_unit: "dozen",
+            quantity_step: 1,
+            units_per_sale_unit: 12
+        });
+        const dozenSale = await saleService.addSale(userId, {
+            product_id: eggs.product.id,
+            quantity: 1
+        });
+        assert.equal(Number(dozenSale.sale.cost_amount), 120);
+        assert.equal(Number(dozenSale.product.stock), 12);
     });
 
     it("lets only one concurrent sale take the last unit", async () => {

@@ -9,6 +9,12 @@ const { addSale } = require("./saleService");
 const { toPublicUser } = require("./authService");
 const { getShopBySlug, getShopperCustomer, assertShopper } = require("./shopCore");
 const profileService = require("./profileService");
+const {
+    assertSaleQuantity,
+    toBaseQuantity,
+    toSaleQuantity,
+    roundQuantity
+} = require("../utils/productUnits");
 
 async function listCart(slug, auth) {
     const shop = await getShopBySlug(slug);
@@ -25,6 +31,11 @@ async function listCart(slug, auth) {
             products.name,
             products.price,
             COALESCE(product_variants.stock, products.stock) AS stock,
+            products.inventory_type,
+            products.base_unit,
+            products.sale_unit,
+            products.quantity_step,
+            products.units_per_sale_unit,
             products.image_path
         FROM cart_items
         INNER JOIN products ON products.id = cart_items.product_id
@@ -46,7 +57,13 @@ async function listCart(slug, auth) {
         color: row.color || "",
         size: row.size || "",
         price: row.price,
-        stock: toNumber(row.stock),
+        stock: toSaleQuantity(row.stock, row.units_per_sale_unit),
+        base_stock: toNumber(row.stock),
+        inventory_type: row.inventory_type,
+        base_unit: row.base_unit,
+        sale_unit: row.sale_unit,
+        quantity_step: toNumber(row.quantity_step),
+        units_per_sale_unit: toNumber(row.units_per_sale_unit),
         image_path: row.image_path || null,
         line_total: toMoney(toNumber(row.quantity) * toMoney(row.price))
     }));
@@ -61,22 +78,28 @@ async function addToCart(slug, auth, { product_id, quantity, color, size }) {
     assertShopper(auth, shop);
 
     const productId = toNumber(product_id);
-    const qty = toNumber(quantity) || 1;
+    const requestedQty = roundQuantity(quantity) || 1;
     const colorName = String(color || "").trim();
     const sizeName = String(size || "").trim();
 
-    if (productId <= 0 || qty <= 0) {
+    if (productId <= 0 || requestedQty <= 0) {
         throw new ServiceError(400, "Product and quantity are required");
     }
 
     const products = await query(
-        "SELECT id, stock FROM products WHERE id = ? AND user_id = ?",
+        `
+        SELECT id, stock, quantity_step, units_per_sale_unit
+        FROM products
+        WHERE id = ? AND user_id = ?
+        `,
         [productId, shop.tenantId]
     );
 
     if (products.length === 0) {
         throw new ServiceError(404, "Product not found");
     }
+
+    const qty = assertSaleQuantity(requestedQty, products[0].quantity_step);
 
     const [colors, sizes] = await Promise.all([
         query("SELECT name FROM product_colors WHERE product_id = ?", [productId]),
@@ -108,14 +131,17 @@ async function addToCart(slug, auth, { product_id, quantity, color, size }) {
         [auth.id, productId, colorName, sizeName]
     );
 
-    const nextQty = existing.length > 0 ? toNumber(existing[0].quantity) + qty : qty;
+    const nextQty = assertSaleQuantity(
+        existing.length > 0 ? toNumber(existing[0].quantity) + qty : qty,
+        products[0].quantity_step
+    );
     const variants = await query(
         "SELECT stock FROM product_variants WHERE product_id = ? AND color = ? AND size = ?",
         [productId, colorName, sizeName]
     );
     const available = variants.length > 0 ? toNumber(variants[0].stock) : toNumber(products[0].stock);
 
-    if (nextQty > available) {
+    if (toBaseQuantity(nextQty, products[0].units_per_sale_unit) > available) {
         throw new ServiceError(400, "Not enough stock for this option");
     }
 
@@ -135,7 +161,7 @@ async function updateCartItem(slug, auth, itemId, quantity) {
     const shop = await getShopBySlug(slug);
     assertShopper(auth, shop);
 
-    const qty = toNumber(quantity);
+    const requestedQty = roundQuantity(quantity);
     const items = await query(
         `
         SELECT cart_items.id, cart_items.product_id, cart_items.quantity, cart_items.color, cart_items.size
@@ -150,10 +176,20 @@ async function updateCartItem(slug, auth, itemId, quantity) {
         throw new ServiceError(404, "Cart item not found");
     }
 
-    if (qty <= 0) {
+    if (requestedQty <= 0) {
         await query("DELETE FROM cart_items WHERE id = ? AND user_id = ?", [itemId, auth.id]);
         return listCart(slug, auth);
     }
+
+    const productRows = await query(
+        `
+        SELECT stock, quantity_step, units_per_sale_unit
+        FROM products
+        WHERE id = ? AND user_id = ?
+        `,
+        [items[0].product_id, shop.tenantId]
+    );
+    const qty = assertSaleQuantity(requestedQty, productRows[0].quantity_step);
 
     const variants = await query(
         "SELECT stock FROM product_variants WHERE product_id = ? AND color = ? AND size = ?",
@@ -162,16 +198,9 @@ async function updateCartItem(slug, auth, itemId, quantity) {
     const available =
         variants.length > 0
             ? toNumber(variants[0].stock)
-            : toNumber(
-                  (
-                      await query("SELECT stock FROM products WHERE id = ? AND user_id = ?", [
-                          items[0].product_id,
-                          shop.tenantId
-                      ])
-                  )[0].stock
-              );
+            : toNumber(productRows[0].stock);
 
-    if (qty > available) {
+    if (toBaseQuantity(qty, productRows[0].units_per_sale_unit) > available) {
         throw new ServiceError(400, "Not enough stock for this option");
     }
 
@@ -271,6 +300,7 @@ async function getShopperOrder(slug, auth, orderId) {
                 sale_items.product_id,
                 products.name AS product,
                 sale_items.quantity,
+                sale_items.sale_unit,
                 sale_items.unit_price,
                 sale_items.total_amount,
                 sale_items.color,

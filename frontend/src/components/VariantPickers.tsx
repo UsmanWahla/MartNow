@@ -1,6 +1,7 @@
 import Select from "./Select";
 import type { Product } from "../types";
 import { findVariantStock, hasVariantOptions, variantLabel } from "../variantStock";
+import { formatQuantity } from "../productUnits";
 
 interface VariantPickersProps {
   product?: Product;
@@ -44,7 +45,8 @@ function VariantPickers({ product, color, size, onColor, onSize }: VariantPicker
       ) : null}
       {ready ? (
         <p className="text-xs font-medium text-slate-500">
-          On hand{variantLabel(color, size) ? ` · ${variantLabel(color, size)}` : ""}: {onHand}
+          On hand{variantLabel(color, size) ? ` · ${variantLabel(color, size)}` : ""}:{" "}
+          {formatQuantity(onHand)}
         </p>
       ) : (
         <p className="text-xs font-medium text-slate-400">

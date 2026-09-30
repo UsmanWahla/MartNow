@@ -1,5 +1,6 @@
 import Money from "./Money";
 import { type Sale } from "../types";
+import { formatQuantity } from "../productUnits";
 
 interface ReceiptModalProps {
   sale: Sale;
@@ -50,7 +51,9 @@ function ReceiptModal({ sale, shopName, onClose }: ReceiptModalProps) {
                     ? ` · ${[item.color, item.size].filter(Boolean).join(" / ")}`
                     : ""}
                 </td>
-                <td className="py-1">{item.quantity}</td>
+                <td className="py-1">
+                  {formatQuantity(item.quantity)} {"sale_unit" in item ? item.sale_unit || "piece" : "piece"}
+                </td>
                 <td className="py-1 text-right">
                   <Money value={item.total_amount} />
                 </td>

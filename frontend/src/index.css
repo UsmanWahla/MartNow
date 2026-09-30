@@ -241,6 +241,26 @@ select.field-input--error:focus {
   color: var(--ink);
 }
 
+.shop-qty input {
+  height: 100%;
+  width: 3.25rem;
+  appearance: textfield;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ink);
+  outline: none;
+}
+
+.shop-qty input::-webkit-inner-spin-button,
+.shop-qty input::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}
+
 .shop-qty-sm {
   height: 2rem;
   border-radius: 0.55rem;
@@ -252,6 +272,11 @@ select.field-input--error:focus {
 
 .shop-qty-sm span {
   min-width: 1.15rem;
+  font-size: 0.78rem;
+}
+
+.shop-qty-sm input {
+  width: 2.75rem;
   font-size: 0.78rem;
 }
 
@@ -276,6 +301,12 @@ select.field-input--error:focus {
 
 .shop-qty-lg span {
   min-width: 2.5rem;
+  font-size: 1.05rem;
+}
+
+.shop-qty-lg input {
+  flex: 1;
+  width: auto;
   font-size: 1.05rem;
 }
 

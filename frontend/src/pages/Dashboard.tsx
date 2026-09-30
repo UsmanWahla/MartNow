@@ -10,6 +10,7 @@ import { getApiError, getUser } from "../auth";
 import { fetchDashboard, fetchProducts, fetchSales } from "../api";
 import { canSeeProfit, getRole } from "../roles";
 import Money from "../components/Money";
+import { formatQuantity } from "../productUnits";
 import {
   formatCardMoney,
   type DashboardPeriod,
@@ -289,7 +290,7 @@ function Dashboard() {
           </p>
           <p className="mt-2 truncate text-sm text-red-700">
             {stats.lowStock
-              .map((item) => `${item.name} (${item.stock})`)
+              .map((item) => `${item.name} (${formatQuantity(item.stock)})`)
               .join(", ")}
           </p>
         </div>

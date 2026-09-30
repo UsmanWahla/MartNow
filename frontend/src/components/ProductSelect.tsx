@@ -1,5 +1,6 @@
 import Select from "./Select";
 import { formatMoney, type Product } from "../types";
+import { formatQuantity, saleStock, unitLabel } from "../productUnits";
 
 interface ProductSelectProps {
   products: Product[];
@@ -14,7 +15,8 @@ function ProductSelect({ products, value, onChange, error }: ProductSelectProps)
       <option value="">Select product</option>
       {products.map((product) => (
         <option key={product.id} value={product.id}>
-          {product.name} — {formatMoney(product.price)} (stock {product.stock})
+          {product.name} — {formatMoney(product.price)}/{product.sale_unit || "piece"} (stock{" "}
+          {formatQuantity(saleStock(product))} {unitLabel(product.sale_unit, saleStock(product))})
         </option>
       ))}
     </Select>

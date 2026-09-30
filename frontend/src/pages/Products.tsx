@@ -30,6 +30,16 @@ import {
 import { upsertById, type Product, type ProductImage } from "../types";
 import { variantCombos, variantKey, variantLabel, weakestStock } from "../variantStock";
 import { collectFieldErrors, requiredMessage } from "../utils/formValidate";
+import { formatNumberInput } from "../numberFormat";
+import {
+  BASE_UNITS,
+  formatQuantity,
+  INVENTORY_PRESETS,
+  SALE_UNITS,
+  type InventoryType,
+  saleStock,
+  unitLabel,
+} from "../productUnits";
 
 const emptyForm = {
   name: "",
@@ -40,6 +50,11 @@ const emptyForm = {
   description: "",
   category: "",
   featured: false,
+  inventoryType: "unit" as InventoryType,
+  baseUnit: "piece",
+  saleUnit: "piece",
+  quantityStep: "1",
+  unitsPerSaleUnit: "1",
 };
 
 const COLOR_PRESETS = [
@@ -76,7 +91,9 @@ function VariantStockGrid({
     const key = variantKey(color, size);
     if (readOnly) {
       return (
-        <span className="font-ledger block text-center text-sm">{values[key] || 0}</span>
+        <span className="font-ledger block text-center text-sm">
+          {formatQuantity(values[key] || 0)}
+        </span>
       );
     }
 
@@ -85,6 +102,7 @@ function VariantStockGrid({
         className="field-input h-9 px-2 text-center"
         type="number"
         min="0"
+        step="0.001"
         value={values[key] ?? ""}
         onChange={(event) => onChange(key, event.target.value)}
       />
@@ -140,7 +158,9 @@ function VariantStockGrid({
           ))}
         </div>
       )}
-      <p className="mt-2 text-xs font-medium text-slate-500">Total {total}</p>
+      <p className="mt-2 text-xs font-medium text-slate-500">
+        Total {formatQuantity(total)}
+      </p>
     </div>
   );
 }
@@ -229,19 +249,24 @@ function Products() {
       Object.fromEntries(
         (product.variants || []).map((row) => [
           variantKey(row.color, row.size),
-          String(row.stock),
+          formatNumberInput(row.stock, "0"),
         ])
       )
     );
     setForm({
       name: product.name,
       sku: product.sku || "",
-      price: String(product.price),
-      cost: String(product.cost_price ?? 0),
-      stock: String(product.stock),
+      price: formatNumberInput(product.price),
+      cost: formatNumberInput(product.cost_price ?? 0, "0"),
+      stock: formatNumberInput(product.stock, "0"),
       description: product.description || "",
       category: product.category || "",
       featured: Boolean(product.featured),
+      inventoryType: product.inventory_type || "unit",
+      baseUnit: product.base_unit || "piece",
+      saleUnit: product.sale_unit || "piece",
+      quantityStep: formatNumberInput(product.quantity_step || 1, "1"),
+      unitsPerSaleUnit: formatNumberInput(product.units_per_sale_unit || 1, "1"),
     });
   }
 
@@ -253,6 +278,14 @@ function Products() {
         !form.price.trim() || Number(form.price) < 0
           ? "Please enter a valid price"
           : "",
+      ],
+      [
+        "quantityStep",
+        Number(form.quantityStep) <= 0 ? "Quantity step must be greater than zero" : "",
+      ],
+      [
+        "unitsPerSaleUnit",
+        Number(form.unitsPerSaleUnit) <= 0 ? "Unit conversion must be greater than zero" : "",
       ],
     ]);
   }
@@ -287,6 +320,11 @@ function Products() {
           colors,
           sizes,
           variants,
+          inventory_type: form.inventoryType,
+          base_unit: form.baseUnit,
+          sale_unit: form.saleUnit,
+          quantity_step: Number(form.quantityStep),
+          units_per_sale_unit: Number(form.unitsPerSaleUnit),
         });
 
         setProducts((current) => upsertById(current, response.product));
@@ -308,6 +346,11 @@ function Products() {
         description: product.description || "",
         category: changes.category ?? product.category ?? "",
         featured: changes.featured ?? product.featured ?? false,
+        inventory_type: product.inventory_type || "unit",
+        base_unit: product.base_unit || "piece",
+        sale_unit: product.sale_unit || "piece",
+        quantity_step: Number(product.quantity_step || 1),
+        units_per_sale_unit: Number(product.units_per_sale_unit || 1),
       });
 
       setProducts((current) => upsertById(current, response.product));
@@ -338,6 +381,11 @@ function Products() {
           description: form.description,
           category: form.category,
           featured: form.featured,
+          inventory_type: form.inventoryType,
+          base_unit: form.baseUnit,
+          sale_unit: form.saleUnit,
+          quantity_step: Number(form.quantityStep),
+          units_per_sale_unit: Number(form.unitsPerSaleUnit),
           images: imageFiles,
           colors,
           sizes,
@@ -462,14 +510,17 @@ function Products() {
       sortable: true,
       sortValue: (product) => Number(product.cost_price),
       render: (product) => (
-        <InlineEdit
-          type="number"
-          value={String(product.cost_price ?? 0)}
-          display={<Money value={product.cost_price ?? 0} />}
-          onSave={(value) =>
-            void updateProduct(product, { cost_price: Number(value) })
-          }
-        />
+        <div>
+          <InlineEdit
+            type="number"
+            value={formatNumberInput(product.cost_price ?? 0, "0")}
+            display={<Money value={product.cost_price ?? 0} />}
+            onSave={(value) =>
+              void updateProduct(product, { cost_price: Number(value) })
+            }
+          />
+          <p className="text-[11px] text-slate-400">per {product.base_unit || "piece"}</p>
+        </div>
       ),
     },
     {
@@ -478,14 +529,17 @@ function Products() {
       sortable: true,
       sortValue: (product) => Number(product.price),
       render: (product) => (
-        <InlineEdit
-          type="number"
-          value={String(product.price)}
-          display={<Money value={product.price} />}
-          onSave={(value) =>
-            void updateProduct(product, { price: Number(value) })
-          }
-        />
+        <div>
+          <InlineEdit
+            type="number"
+            value={formatNumberInput(product.price)}
+            display={<Money value={product.price} />}
+            onSave={(value) =>
+              void updateProduct(product, { price: Number(value) })
+            }
+          />
+          <p className="text-[11px] text-slate-400">per {product.sale_unit || "piece"}</p>
+        </div>
       ),
     },
     {
@@ -496,8 +550,13 @@ function Products() {
       render: (product) => (
         <div className="min-w-7rem">
           <div className="flex items-center gap-2">
-            <span className="font-ledger">{product.stock}</span>
-            <LowStockBadge stock={weakestStock(product)} threshold={lowStockLimit} />
+            <span className="font-ledger">
+              {formatQuantity(product.stock)} {unitLabel(product.base_unit, Number(product.stock))}
+            </span>
+            <LowStockBadge
+              stock={saleStock(product, weakestStock(product))}
+              threshold={lowStockLimit}
+            />
           </div>
           {product.variants &&
           product.variants.length > 0 &&
@@ -506,7 +565,7 @@ function Products() {
               {product.variants
                 .map(
                   (row) =>
-                    `${variantLabel(row.color, row.size) || "Base"} ${row.stock}`
+                    `${variantLabel(row.color, row.size) || "Base"} ${formatQuantity(row.stock)}`
                 )
                 .join(" · ")}
             </p>
@@ -533,6 +592,8 @@ function Products() {
     },
   ];
 
+  const unitLocked = Boolean(editingProduct && Number(editingProduct.stock) > 0);
+  const usesVariants = colors.length > 0 || sizes.length > 0;
   const productForm = (
     <>
       <Field
@@ -549,6 +610,145 @@ function Products() {
         value={form.sku}
         onChange={(sku) => setForm({ ...form, sku })}
       />
+      <div className="rounded-2xl border border-(--hairline) bg-[#f8fbfa] p-3">
+        <div className="mb-3">
+          <p className="text-sm font-semibold text-slate-800">Inventory & selling unit</p>
+          <p className="mt-0.5 text-xs text-slate-500">
+            Stock and FIFO cost stay in the base unit; customers buy in the sale unit.
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block text-sm font-medium text-slate-700">
+            Product type
+            <select
+              className="field-input mt-1.5"
+              value={form.inventoryType}
+              disabled={unitLocked}
+              onChange={(event) => {
+                const inventoryType = event.target.value as InventoryType;
+                const preset = INVENTORY_PRESETS[inventoryType];
+                setForm({
+                  ...form,
+                  inventoryType,
+                  baseUnit: preset.baseUnit,
+                  saleUnit: preset.saleUnit,
+                  quantityStep: String(preset.step),
+                  unitsPerSaleUnit: String(preset.conversion),
+                });
+              }}
+            >
+              {Object.entries(INVENTORY_PRESETS).map(([value, preset]) => (
+                <option key={value} value={value}>{preset.label}</option>
+              ))}
+            </select>
+          </label>
+          <label className="block text-sm font-medium text-slate-700">
+            Base stock unit
+            <select
+              className="field-input mt-1.5"
+              value={form.baseUnit}
+              disabled={unitLocked}
+              onChange={(event) => setForm({ ...form, baseUnit: event.target.value })}
+            >
+              {BASE_UNITS.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
+            </select>
+          </label>
+          <label className="block text-sm font-medium text-slate-700">
+            Customer sale unit
+            <select
+              className="field-input mt-1.5"
+              value={form.saleUnit}
+              disabled={unitLocked}
+              onChange={(event) => setForm({ ...form, saleUnit: event.target.value })}
+            >
+              {SALE_UNITS.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
+            </select>
+          </label>
+          <Field
+            label={`Minimum quantity step (${form.saleUnit})`}
+            type="number"
+            min="0.001"
+            step="0.001"
+            disabled={unitLocked}
+            value={form.quantityStep}
+            error={errors.quantityStep}
+            onChange={(quantityStep) => {
+              setForm({ ...form, quantityStep });
+              clearError("quantityStep");
+            }}
+          />
+          <Field
+            label={`${form.baseUnit}s in one ${form.saleUnit}`}
+            type="number"
+            min="0.001"
+            step="0.001"
+            disabled={unitLocked}
+            value={form.unitsPerSaleUnit}
+            error={errors.unitsPerSaleUnit}
+            onChange={(unitsPerSaleUnit) => {
+              setForm({ ...form, unitsPerSaleUnit });
+              clearError("unitsPerSaleUnit");
+            }}
+          />
+        </div>
+        {unitLocked ? (
+          <p className="mt-2 text-xs font-medium text-amber-700">
+            Units are locked while stock is on hand. Stock it out before changing conversion.
+          </p>
+        ) : null}
+      </div>
+      <div className="rounded-2xl border border-(--hairline) bg-[#f8fbfa] p-3">
+        <div className="mb-3">
+          <p className="text-sm font-semibold text-slate-800">Pricing & opening stock</p>
+          <p className="mt-0.5 text-xs text-slate-500">
+            Purchase cost uses the base unit; customer price uses the sale unit.
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <Field
+            type="number"
+            label={`Cost price per ${form.baseUnit}`}
+            placeholder="Cost price"
+            min="0"
+            step="0.0001"
+            value={form.cost}
+            onChange={(cost) => setForm({ ...form, cost })}
+          />
+          <Field
+            type="number"
+            label={`Sale price per ${form.saleUnit}`}
+            placeholder="Sale price"
+            min="1"
+            step="0.01"
+            value={form.price}
+            error={errors.price}
+            onChange={(price) => {
+              setForm({ ...form, price });
+              clearError("price");
+            }}
+          />
+          {!editingProduct && !usesVariants ? (
+            <Field
+              type="number"
+              label={`Opening stock (${form.baseUnit})`}
+              placeholder="Opening stock"
+              min="0"
+              step="0.001"
+              value={form.stock}
+              onChange={(stock) => setForm({ ...form, stock })}
+            />
+          ) : null}
+        </div>
+        {usesVariants ? (
+          <p className="mt-2 text-xs font-medium text-teal-700">
+            Opening stock is entered separately for each color and size below.
+          </p>
+        ) : editingProduct ? (
+          <p className="mt-2 text-xs font-medium text-slate-500">
+            Use Stock In, Damage, or Adjust to change existing stock.
+          </p>
+        ) : null}
+      </div>
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
         <label className="block text-sm font-medium text-slate-700">
           Product category
@@ -790,27 +990,7 @@ function Products() {
           </button>
         </div>
       </div>
-      <Field
-        type="number"
-        placeholder="Cost price"
-        min="0"
-        step="0.01"
-        value={form.cost}
-        onChange={(cost) => setForm({ ...form, cost })}
-      />
-      <Field
-        type="number"
-        placeholder="Sale price"
-        min="1"
-        step="0.01"
-        value={form.price}
-        error={errors.price}
-        onChange={(price) => {
-          setForm({ ...form, price });
-          clearError("price");
-        }}
-      />
-      {colors.length > 0 || sizes.length > 0 ? (
+      {usesVariants ? (
         <div className="rounded-2xl border border-(--hairline) bg-[#f8fbfa] p-3">
           <div className="mb-2 flex items-baseline justify-between gap-3">
             <p className="text-sm font-semibold">
@@ -830,15 +1010,7 @@ function Products() {
             }
           />
         </div>
-      ) : editingProduct ? null : (
-        <Field
-          type="number"
-          placeholder="Opening stock"
-          min="0"
-          value={form.stock}
-          onChange={(stock) => setForm({ ...form, stock })}
-        />
-      )}
+      ) : null}
     </>
   );
 

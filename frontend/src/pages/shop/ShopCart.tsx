@@ -14,6 +14,7 @@ import { getApiError, isShopperSession, shopLoginPath } from "../../auth";
 import { useToast } from "../../hooks/useToast";
 import useBusy from "../../hooks/useBusy";
 import type { ShopCart } from "../../types";
+import { unitLabel } from "../../productUnits";
 
 const ROW_TONES = ["#e7f6f1", "#eef6e4", "#dcefe9", "#f3faf8"];
 
@@ -117,16 +118,22 @@ function ShopCartPage() {
                       {[item.color, item.size].filter(Boolean).join(" · ")}
                     </p>
                   ) : null}
-                  <Money value={item.price} className="text-xs text-slate-600" />
+                  <p className="text-xs text-slate-600">
+                    <Money value={item.price} /> / {item.sale_unit || "piece"}
+                  </p>
                 </div>
                 <ShopQtyStepper
                   size="sm"
                   value={item.quantity}
-                  min={1}
-                  max={Math.max(1, item.stock)}
+                  min={Number(item.quantity_step || 1)}
+                  max={Math.max(Number(item.quantity_step || 1), item.stock)}
+                  step={Number(item.quantity_step || 1)}
                   disabled={busy}
                   onChange={(quantity) => void changeQty(item.id, quantity)}
                 />
+                <span className="hidden text-[11px] text-slate-500 sm:inline">
+                  {unitLabel(item.sale_unit, item.quantity)}
+                </span>
                 <Money value={item.line_total} className="w-14 shrink-0 text-right text-sm font-semibold text-teal-900 sm:w-16" />
                 <button
                   type="button"

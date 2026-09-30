@@ -4,8 +4,17 @@ const { parseListOptions, like } = require("../utils/list");
 const { ServiceError } = require("../utils/errors");
 const { recordMovement, stockDirection, ensureVariants, listVariants } = require("./stockService");
 const { readProductCategory, readFeatured } = require("../utils/productCatalog");
+const { createBatch } = require("./inventoryBatchService");
+const {
+    readProductUnits,
+    roundQuantity,
+    roundUnitCost
+} = require("../utils/productUnits");
 
-const PRODUCT_COLUMNS = "id, name, sku, price, cost_price, stock, image_path, description, category, featured";
+const PRODUCT_COLUMNS = `
+    id, name, sku, price, cost_price, stock, image_path, description, category, featured,
+    inventory_type, base_unit, sale_unit, quantity_step, units_per_sale_unit
+`;
 
 async function getProduct(tenantId, productId) {
     const results = await query(
@@ -278,25 +287,49 @@ async function assertUniqueSku(tenantId, sku, productId) {
     }
 }
 
-function readProduct(data) {
-    const productName = String(data.name || "").trim();
-    const salePrice = toMoney(data.price);
-    const costPrice = toMoney(data.cost_price);
-    const sku = String(data.sku || "").trim() || null;
-    const description = String(data.description || "").trim() || null;
-    const category = readProductCategory(data.category);
-    const featured = readFeatured(data.featured);
+function readProduct(data, existing = {}) {
+    const productName = String(data.name ?? existing.name ?? "").trim();
+    const salePrice = toMoney(data.price ?? existing.price);
+    const costPrice = roundUnitCost(data.cost_price ?? existing.cost_price);
+    const sku = String(data.sku ?? existing.sku ?? "").trim() || null;
+    const description = String(data.description ?? existing.description ?? "").trim() || null;
+    const category = readProductCategory(data.category ?? existing.category);
+    const featured = readFeatured(data.featured ?? existing.featured);
+    const units = readProductUnits(data, existing);
 
     if (!productName || salePrice <= 0 || costPrice < 0) {
         throw new ServiceError(400, "Name, sale price and cost price are required");
     }
 
-    return { productName, salePrice, costPrice, sku, description, category, featured };
+    return {
+        productName,
+        salePrice,
+        costPrice,
+        sku,
+        description,
+        category,
+        featured,
+        ...units
+    };
 }
 
 async function addProduct(tenantId, data, actorId = tenantId) {
-    const { productName, salePrice, costPrice, sku, description, category, featured } = readProduct(data);
-    const productStock = toNumber(data.stock);
+    const productData = readProduct(data);
+    const {
+        productName,
+        salePrice,
+        costPrice,
+        sku,
+        description,
+        category,
+        featured,
+        inventoryType,
+        baseUnit,
+        saleUnit,
+        quantityStep,
+        unitsPerSaleUnit
+    } = productData;
+    const productStock = roundQuantity(data.stock);
     const imagePath = String(data.image_path || "").trim() || null;
 
     if (productStock < 0) {
@@ -310,8 +343,30 @@ async function addProduct(tenantId, data, actorId = tenantId) {
 
     await withTransaction(async () => {
         const result = await query(
-            "INSERT INTO products (user_id, name, sku, price, cost_price, stock, image_path, description, category, featured) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [tenantId, productName, sku, salePrice, costPrice, productStock, imagePath, description, category, featured ? 1 : 0]
+            `
+            INSERT INTO products (
+                user_id, name, sku, price, cost_price, stock, image_path, description,
+                category, featured, inventory_type, base_unit, sale_unit, quantity_step,
+                units_per_sale_unit
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `,
+            [
+                tenantId,
+                productName,
+                sku,
+                salePrice,
+                costPrice,
+                productStock,
+                imagePath,
+                description,
+                category,
+                featured ? 1 : 0,
+                inventoryType,
+                baseUnit,
+                saleUnit,
+                quantityStep,
+                unitsPerSaleUnit
+            ]
         );
 
         productId = result.insertId;
@@ -330,7 +385,7 @@ async function addProduct(tenantId, data, actorId = tenantId) {
 
         for (const row of variants) {
             if (toNumber(row.stock) > 0) {
-                await recordMovement(
+                const movementId = await recordMovement(
                     tenantId,
                     actorId,
                     productId,
@@ -339,8 +394,19 @@ async function addProduct(tenantId, data, actorId = tenantId) {
                     "Opening stock",
                     null,
                     row.color,
-                    row.size
+                    row.size,
+                    costPrice
                 );
+                await createBatch({
+                    tenantId,
+                    actorId,
+                    productId,
+                    movementId,
+                    color: row.color,
+                    size: row.size,
+                    quantity: row.stock,
+                    unitCost: costPrice
+                });
             }
         }
     });
@@ -352,20 +418,64 @@ async function addProduct(tenantId, data, actorId = tenantId) {
 }
 
 async function updateProduct(tenantId, productId, data) {
-    const { productName, salePrice, costPrice, sku, description, category, featured } = readProduct(data);
+    const existingRows = await query(
+        `SELECT ${PRODUCT_COLUMNS} FROM products WHERE id = ? AND user_id = ?`,
+        [productId, tenantId]
+    );
+
+    if (existingRows.length === 0) {
+        throw new ServiceError(404, "Product not found");
+    }
+
+    const existing = existingRows[0];
+    const productData = readProduct(data, existing);
+    const {
+        productName,
+        salePrice,
+        costPrice,
+        sku,
+        description,
+        category,
+        featured,
+        inventoryType,
+        baseUnit,
+        saleUnit,
+        quantityStep,
+        unitsPerSaleUnit
+    } = productData;
     const imagePath = String(data.image_path || "").trim();
+
+    const unitsChanged =
+        inventoryType !== existing.inventory_type ||
+        baseUnit !== existing.base_unit ||
+        saleUnit !== existing.sale_unit ||
+        quantityStep !== roundQuantity(existing.quantity_step) ||
+        unitsPerSaleUnit !== roundQuantity(existing.units_per_sale_unit);
+
+    if (unitsChanged && roundQuantity(existing.stock) > 0) {
+        throw new ServiceError(
+            400,
+            "Stock out this product before changing its units or quantity conversion"
+        );
+    }
 
     await assertUniqueName(tenantId, productName, productId);
     await assertUniqueSku(tenantId, sku, productId);
 
     const result = imagePath
         ? await query(
-            "UPDATE products SET name = ?, sku = ?, price = ?, cost_price = ?, description = ?, category = ?, featured = ?, image_path = ? WHERE id = ? AND user_id = ?",
-            [productName, sku, salePrice, costPrice, description, category, featured ? 1 : 0, imagePath, productId, tenantId]
+            `UPDATE products SET name = ?, sku = ?, price = ?, cost_price = ?, description = ?,
+                category = ?, featured = ?, image_path = ?, inventory_type = ?, base_unit = ?,
+                sale_unit = ?, quantity_step = ?, units_per_sale_unit = ?
+             WHERE id = ? AND user_id = ?`,
+            [productName, sku, salePrice, costPrice, description, category, featured ? 1 : 0, imagePath, inventoryType, baseUnit, saleUnit, quantityStep, unitsPerSaleUnit, productId, tenantId]
         )
         : await query(
-            "UPDATE products SET name = ?, sku = ?, price = ?, cost_price = ?, description = ?, category = ?, featured = ? WHERE id = ? AND user_id = ?",
-            [productName, sku, salePrice, costPrice, description, category, featured ? 1 : 0, productId, tenantId]
+            `UPDATE products SET name = ?, sku = ?, price = ?, cost_price = ?, description = ?,
+                category = ?, featured = ?, inventory_type = ?, base_unit = ?, sale_unit = ?,
+                quantity_step = ?, units_per_sale_unit = ?
+             WHERE id = ? AND user_id = ?`,
+            [productName, sku, salePrice, costPrice, description, category, featured ? 1 : 0, inventoryType, baseUnit, saleUnit, quantityStep, unitsPerSaleUnit, productId, tenantId]
         );
 
     if (result.affectedRows === 0) {

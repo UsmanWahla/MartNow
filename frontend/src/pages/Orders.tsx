@@ -13,6 +13,8 @@ import SaleLines, { type SaleLine } from "../components/SaleLines";
 import ReceiptModal from "../components/ReceiptModal";
 import DataTable, { type DataTableColumn } from "../components/DataTable";
 import Money from "../components/Money";
+import { formatQuantity } from "../productUnits";
+import { formatNumberInput } from "../numberFormat";
 import { useToast } from "../hooks/useToast";
 import useBusy from "../hooks/useBusy";
 import useOpenAddFromQuery from "../hooks/useOpenAddFromQuery";
@@ -172,7 +174,7 @@ function Orders() {
     setLines(
       (sale.items || []).map((item) => ({
         productId: String(item.product_id),
-        quantity: String(item.quantity),
+        quantity: formatNumberInput(item.quantity),
         color: item.color || "",
         size: item.size || "",
       }))
@@ -180,7 +182,7 @@ function Orders() {
     setCustomerId(sale.customer_id ? String(sale.customer_id) : "");
     setAddingCustomer(false);
     setNewCustomer({ name: "", phone: "" });
-    setPaidAmount(String(sale.paid_amount ?? sale.total_amount));
+    setPaidAmount(formatNumberInput(sale.paid_amount ?? sale.total_amount));
   }
 
   async function resolveCustomerId() {
@@ -393,6 +395,7 @@ function Orders() {
       header: "Qty",
       sortable: true,
       sortValue: (sale) => Number(sale.quantity),
+      render: (sale) => formatQuantity(sale.quantity),
     },
     {
       key: "customer",
@@ -685,7 +688,7 @@ function Orders() {
                     {item.color || item.size
                       ? ` · ${[item.color, item.size].filter(Boolean).join(" / ")}`
                       : ""}{" "}
-                    × {item.quantity}
+                    × {formatQuantity(item.quantity)} {item.sale_unit || "piece"}
                   </span>
                   <Money value={item.total_amount} />
                 </li>

@@ -2,6 +2,18 @@ const { query, withTransaction } = require("../utils/query");
 const { toNumber } = require("../utils/http");
 const { parseListOptions, like } = require("../utils/list");
 const { ServiceError } = require("../utils/errors");
+const {
+    roundQuantity,
+    roundUnitCost,
+    toBaseQuantity
+} = require("../utils/productUnits");
+const {
+    createBatch,
+    allocateFifo,
+    restoreMovementAllocations,
+    removeUnusedInboundBatch,
+    updateInboundBatchDetails
+} = require("./inventoryBatchService");
 
 const POST_TYPES = ["in", "damage", "adjust"];
 
@@ -19,6 +31,20 @@ function stockDirection(type) {
 
 function normalizeOption(value) {
     return String(value || "").trim();
+}
+
+function readOptionalSalePrice(value) {
+    if (value === undefined || value === null || value === "") {
+        return null;
+    }
+
+    const price = Number(value);
+
+    if (!Number.isFinite(price) || price <= 0) {
+        throw new ServiceError(400, "Enter a valid new sale price");
+    }
+
+    return price;
 }
 
 function variantKey(color, size) {
@@ -104,6 +130,14 @@ async function ensureVariants(productId, colors, sizes, opening) {
 
     if (wantedIsBlank && !existingIsBlank) {
         const total = existing.reduce((sum, row) => sum + toNumber(row.stock), 0);
+
+        if (total > 0) {
+            throw new ServiceError(
+                400,
+                "Stock out existing color/size inventory before removing product options"
+            );
+        }
+
         await query("DELETE FROM product_variants WHERE product_id = ?", [productId]);
         await query(
             "INSERT INTO product_variants (product_id, color, size, stock) VALUES (?, '', '', ?)",
@@ -115,6 +149,14 @@ async function ensureVariants(productId, colors, sizes, opening) {
 
     if (existingIsBlank && !wantedIsBlank) {
         const carry = toNumber(existing[0].stock);
+
+        if (carry > 0) {
+            throw new ServiceError(
+                400,
+                "Stock out the existing inventory before adding color/size options"
+            );
+        }
+
         await query("DELETE FROM product_variants WHERE product_id = ?", [productId]);
         let first = true;
 
@@ -220,21 +262,22 @@ async function recordMovement(
     note,
     supplierId = null,
     color = "",
-    size = ""
+    size = "",
+    unitCost = null
 ) {
-    const movementQty = toNumber(quantity);
+    const movementQty = roundQuantity(quantity);
 
     if (movementQty <= 0) {
-        return;
+        return null;
     }
 
     stockDirection(type);
 
-    await query(
+    const result = await query(
         `
         INSERT INTO stock_movements
-            (user_id, product_id, supplier_id, type, quantity, note, created_by, color, size)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (user_id, product_id, supplier_id, type, quantity, unit_cost, note, created_by, color, size)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `,
         [
             tenantId,
@@ -242,12 +285,15 @@ async function recordMovement(
             supplierId || null,
             type,
             movementQty,
+            unitCost == null ? null : roundUnitCost(unitCost),
             note || null,
             actorId,
             normalizeOption(color),
             normalizeOption(size)
         ]
     );
+
+    return result.insertId;
 }
 
 async function listMovements(tenantId, options = {}) {
@@ -275,6 +321,7 @@ async function listMovements(tenantId, options = {}) {
         FROM stock_movements
         INNER JOIN products ON products.id = stock_movements.product_id
         LEFT JOIN suppliers ON suppliers.id = stock_movements.supplier_id
+        LEFT JOIN inventory_batches ON inventory_batches.stock_movement_id = stock_movements.id
         ${where}
     `;
     const countRows = await query(`SELECT COUNT(*) AS n ${from}`, params);
@@ -288,10 +335,15 @@ async function listMovements(tenantId, options = {}) {
             suppliers.name AS supplier,
             stock_movements.type,
             stock_movements.quantity,
+            stock_movements.unit_cost,
             stock_movements.note,
             stock_movements.color,
             stock_movements.size,
-            stock_movements.created_at
+            products.base_unit,
+            products.sale_unit,
+            products.units_per_sale_unit,
+            stock_movements.created_at,
+            COALESCE(inventory_batches.received_at, stock_movements.created_at) AS received_at
         ${from}
         ORDER BY stock_movements.id DESC
         ${limitSql}
@@ -305,11 +357,23 @@ async function listMovements(tenantId, options = {}) {
 async function addMovement(
     tenantId,
     actorId,
-    { product_id, type, quantity, note, supplier_id, color, size }
+    {
+        product_id,
+        type,
+        quantity,
+        quantity_unit,
+        unit_cost,
+        new_sale_price,
+        received_at,
+        note,
+        supplier_id,
+        color,
+        size
+    }
 ) {
     const productId = toNumber(product_id);
     const movementType = String(type || "").trim();
-    const movementQty = toNumber(quantity);
+    const inputQuantity = roundQuantity(quantity);
     const movementNote = String(note || "").trim() || null;
     const supplierId = toNumber(supplier_id) || null;
     const colorName = normalizeOption(color);
@@ -319,7 +383,7 @@ async function addMovement(
         throw new ServiceError(400, "Type must be in, damage, or adjust");
     }
 
-    if (!productId || movementQty <= 0) {
+    if (!productId || inputQuantity <= 0) {
         throw new ServiceError(400, "Product and quantity are required");
     }
 
@@ -328,7 +392,13 @@ async function addMovement(
 
     await withTransaction(async () => {
         const products = await query(
-            "SELECT id, name, sku, price, cost_price, stock FROM products WHERE id = ? AND user_id = ? FOR UPDATE",
+            `
+            SELECT id, name, sku, price, cost_price, stock,
+                   inventory_type, base_unit, sale_unit, quantity_step, units_per_sale_unit
+            FROM products
+            WHERE id = ? AND user_id = ?
+            FOR UPDATE
+            `,
             [productId, tenantId]
         );
 
@@ -347,15 +417,32 @@ async function addMovement(
             }
         }
 
+        const sourceProduct = products[0];
+        const usesSaleUnit = String(quantity_unit || "") === sourceProduct.sale_unit;
+        const conversion = usesSaleUnit ? Number(sourceProduct.units_per_sale_unit || 1) : 1;
+        const movementQty = usesSaleUnit
+            ? toBaseQuantity(inputQuantity, conversion)
+            : inputQuantity;
+        const rawCost =
+            unit_cost === undefined || unit_cost === null || unit_cost === ""
+                ? Number(sourceProduct.cost_price || 0) * conversion
+                : Number(unit_cost);
+
+        if (!Number.isFinite(rawCost) || rawCost < 0) {
+            throw new ServiceError(400, "Enter a valid purchase cost");
+        }
+
+        const baseUnitCost = roundUnitCost(rawCost / conversion);
+
         await applyVariantDelta(
             productId,
             colorName,
             sizeName,
             direction * movementQty,
-            products[0].name
+            sourceProduct.name
         );
 
-        await recordMovement(
+        const movementId = await recordMovement(
             tenantId,
             actorId,
             productId,
@@ -364,8 +451,48 @@ async function addMovement(
             movementNote,
             movementType === "in" ? supplierId : null,
             colorName,
-            sizeName
+            sizeName,
+            movementType === "in" ? baseUnitCost : null
         );
+
+        if (movementType === "in") {
+            await createBatch({
+                tenantId,
+                actorId,
+                productId,
+                movementId,
+                supplierId,
+                color: colorName,
+                size: sizeName,
+                quantity: movementQty,
+                unitCost: baseUnitCost,
+                receivedAt: received_at
+            });
+
+            const salePrice = readOptionalSalePrice(new_sale_price);
+            await query(
+                `
+                UPDATE products
+                SET cost_price = ?, price = CASE WHEN ? IS NOT NULL THEN ? ELSE price END
+                WHERE id = ? AND user_id = ?
+                `,
+                [baseUnitCost, salePrice, salePrice, productId, tenantId]
+            );
+            sourceProduct.cost_price = baseUnitCost;
+
+            if (salePrice !== null) {
+                sourceProduct.price = salePrice;
+            }
+        } else {
+            await allocateFifo({
+                tenantId,
+                productId,
+                color: colorName,
+                size: sizeName,
+                quantity: movementQty,
+                stockMovementId: movementId
+            });
+        }
 
         const refreshed = await query("SELECT stock FROM products WHERE id = ?", [productId]);
         const [variants, colors, sizes] = await Promise.all([
@@ -377,7 +504,7 @@ async function addMovement(
             )
         ]);
         product = {
-            ...products[0],
+            ...sourceProduct,
             stock: toNumber(refreshed[0].stock),
             variants,
             colors,
@@ -399,10 +526,15 @@ const MOVEMENT_SELECT = `
     suppliers.name AS supplier,
     stock_movements.type,
     stock_movements.quantity,
+    stock_movements.unit_cost,
     stock_movements.note,
     stock_movements.color,
     stock_movements.size,
-    stock_movements.created_at
+    products.base_unit,
+    products.sale_unit,
+    products.units_per_sale_unit,
+    stock_movements.created_at,
+    COALESCE(inventory_batches.received_at, stock_movements.created_at) AS received_at
 `;
 
 async function getMovement(tenantId, movementId) {
@@ -412,6 +544,7 @@ async function getMovement(tenantId, movementId) {
         FROM stock_movements
         INNER JOIN products ON products.id = stock_movements.product_id
         LEFT JOIN suppliers ON suppliers.id = stock_movements.supplier_id
+        LEFT JOIN inventory_batches ON inventory_batches.stock_movement_id = stock_movements.id
         WHERE stock_movements.id = ? AND stock_movements.user_id = ?
         `,
         [movementId, tenantId]
@@ -426,7 +559,12 @@ async function getMovement(tenantId, movementId) {
 
 async function loadProductSnapshot(productId) {
     const products = await query(
-        "SELECT id, name, sku, price, cost_price, stock FROM products WHERE id = ?",
+        `
+        SELECT id, name, sku, price, cost_price, stock,
+               inventory_type, base_unit, sale_unit, quantity_step, units_per_sale_unit
+        FROM products
+        WHERE id = ?
+        `,
         [productId]
     );
 
@@ -452,14 +590,26 @@ async function loadProductSnapshot(productId) {
 }
 
 function movementDelta(type, quantity) {
-    return stockDirection(type) * toNumber(quantity);
+    return stockDirection(type) * roundQuantity(quantity);
 }
 
 async function updateMovement(
     tenantId,
     actorId,
     movementId,
-    { product_id, type, quantity, note, supplier_id, color, size }
+    {
+        product_id,
+        type,
+        quantity,
+        quantity_unit,
+        unit_cost,
+        new_sale_price,
+        received_at,
+        note,
+        supplier_id,
+        color,
+        size
+    }
 ) {
     const existing = await getMovement(tenantId, movementId);
 
@@ -469,8 +619,6 @@ async function updateMovement(
 
     const productId = toNumber(product_id) || toNumber(existing.product_id);
     const movementType = String(type || existing.type).trim();
-    const movementQty =
-        quantity == null || quantity === "" ? toNumber(existing.quantity) : toNumber(quantity);
     const movementNote = String(note || "").trim() || null;
     const supplierId = toNumber(supplier_id) || null;
     const colorName = normalizeOption(color ?? existing.color);
@@ -480,22 +628,16 @@ async function updateMovement(
         throw new ServiceError(400, "Type must be in, damage, or adjust");
     }
 
-    if (!productId || movementQty <= 0) {
-        throw new ServiceError(400, "Product and quantity are required");
-    }
-
-    const stockChanged =
-        Number(productId) !== Number(existing.product_id) ||
-        movementType !== existing.type ||
-        movementQty !== toNumber(existing.quantity) ||
-        colorName !== normalizeOption(existing.color) ||
-        sizeName !== normalizeOption(existing.size);
-
     let product = null;
 
     await withTransaction(async () => {
         const products = await query(
-            "SELECT id, name FROM products WHERE id = ? AND user_id = ? FOR UPDATE",
+            `
+            SELECT id, name, price, cost_price, base_unit, sale_unit, units_per_sale_unit
+            FROM products
+            WHERE id = ? AND user_id = ?
+            FOR UPDATE
+            `,
             [productId, tenantId]
         );
 
@@ -503,7 +645,7 @@ async function updateMovement(
             throw new ServiceError(404, "Product not found");
         }
 
-        if (supplierId) {
+        if (supplierId && movementType === "in") {
             const suppliers = await query(
                 "SELECT id FROM suppliers WHERE id = ? AND user_id = ? FOR UPDATE",
                 [supplierId, tenantId]
@@ -514,7 +656,79 @@ async function updateMovement(
             }
         }
 
+        const targetProduct = products[0];
+        const hasQuantity = quantity !== undefined && quantity !== null && quantity !== "";
+        const inputQuantity = hasQuantity
+            ? roundQuantity(quantity)
+            : roundQuantity(existing.quantity);
+        const usesSaleUnit =
+            hasQuantity && String(quantity_unit || "") === targetProduct.sale_unit;
+        const conversion = usesSaleUnit
+            ? Number(targetProduct.units_per_sale_unit || 1)
+            : 1;
+        const movementQty = usesSaleUnit
+            ? toBaseQuantity(inputQuantity, conversion)
+            : inputQuantity;
+
+        if (!productId || movementQty <= 0) {
+            throw new ServiceError(400, "Product and quantity are required");
+        }
+
+        const fallbackCost =
+            existing.type === "in" && existing.unit_cost != null
+                ? Number(existing.unit_cost) * conversion
+                : Number(targetProduct.cost_price || 0) * conversion;
+        const rawCost =
+            unit_cost === undefined || unit_cost === null || unit_cost === ""
+                ? fallbackCost
+                : Number(unit_cost);
+
+        if (!Number.isFinite(rawCost) || rawCost < 0) {
+            throw new ServiceError(400, "Enter a valid purchase cost");
+        }
+
+        const baseUnitCost = roundUnitCost(rawCost / conversion);
+        const stockChanged =
+            Number(productId) !== Number(existing.product_id) ||
+            movementType !== existing.type ||
+            movementQty !== roundQuantity(existing.quantity) ||
+            colorName !== normalizeOption(existing.color) ||
+            sizeName !== normalizeOption(existing.size);
+
         if (stockChanged) {
+            if (existing.type === "in") {
+                const removed = await removeUnusedInboundBatch(movementId);
+
+                if (!removed) {
+                    throw new ServiceError(
+                        400,
+                        "This legacy stock-in entry cannot change quantity; add a new adjustment instead"
+                    );
+                }
+            } else {
+                const restored = await restoreMovementAllocations(movementId);
+
+                if (restored <= 0) {
+                    const legacyProduct = Number(productId) === Number(existing.product_id)
+                        ? targetProduct
+                        : (
+                            await query(
+                                "SELECT cost_price FROM products WHERE id = ? AND user_id = ?",
+                                [existing.product_id, tenantId]
+                            )
+                        )[0];
+                    await createBatch({
+                        tenantId,
+                        actorId,
+                        productId: existing.product_id,
+                        color: existing.color,
+                        size: existing.size,
+                        quantity: existing.quantity,
+                        unitCost: legacyProduct ? legacyProduct.cost_price : 0
+                    });
+                }
+            }
+
             if (Number(productId) !== Number(existing.product_id)) {
                 const previous = await query(
                     "SELECT id, name FROM products WHERE id = ? AND user_id = ? FOR UPDATE",
@@ -549,12 +763,19 @@ async function updateMovement(
                 movementDelta(movementType, movementQty),
                 products[0].name
             );
+        } else if (movementType === "in") {
+            await updateInboundBatchDetails(movementId, {
+                supplierId,
+                unitCost: baseUnitCost,
+                receivedAt: received_at
+            });
         }
 
         await query(
             `
             UPDATE stock_movements
-            SET product_id = ?, supplier_id = ?, type = ?, quantity = ?, note = ?, color = ?, size = ?
+            SET product_id = ?, supplier_id = ?, type = ?, quantity = ?, unit_cost = ?,
+                note = ?, color = ?, size = ?
             WHERE id = ? AND user_id = ?
             `,
             [
@@ -562,6 +783,7 @@ async function updateMovement(
                 movementType === "in" ? supplierId : null,
                 movementType,
                 movementQty,
+                movementType === "in" ? baseUnitCost : null,
                 movementNote,
                 colorName,
                 sizeName,
@@ -569,6 +791,44 @@ async function updateMovement(
                 tenantId
             ]
         );
+
+        if (stockChanged) {
+            if (movementType === "in") {
+                await createBatch({
+                    tenantId,
+                    actorId,
+                    productId,
+                    movementId,
+                    supplierId,
+                    color: colorName,
+                    size: sizeName,
+                    quantity: movementQty,
+                    unitCost: baseUnitCost,
+                    receivedAt: received_at
+                });
+            } else {
+                await allocateFifo({
+                    tenantId,
+                    productId,
+                    color: colorName,
+                    size: sizeName,
+                    quantity: movementQty,
+                    stockMovementId: movementId
+                });
+            }
+        }
+
+        if (movementType === "in") {
+            const salePrice = readOptionalSalePrice(new_sale_price);
+            await query(
+                `
+                UPDATE products
+                SET cost_price = ?, price = CASE WHEN ? IS NOT NULL THEN ? ELSE price END
+                WHERE id = ? AND user_id = ?
+                `,
+                [baseUnitCost, salePrice, salePrice, productId, tenantId]
+            );
+        }
 
         product = await loadProductSnapshot(productId);
     });
@@ -591,12 +851,37 @@ async function deleteMovement(tenantId, actorId, movementId) {
 
     await withTransaction(async () => {
         const products = await query(
-            "SELECT id, name FROM products WHERE id = ? AND user_id = ? FOR UPDATE",
+            "SELECT id, name, cost_price FROM products WHERE id = ? AND user_id = ? FOR UPDATE",
             [existing.product_id, tenantId]
         );
 
         if (products.length === 0) {
             throw new ServiceError(404, "Product not found");
+        }
+
+        if (existing.type === "in") {
+            const removed = await removeUnusedInboundBatch(movementId);
+
+            if (!removed) {
+                throw new ServiceError(
+                    400,
+                    "This legacy stock-in entry cannot be deleted; add a stock adjustment instead"
+                );
+            }
+        } else {
+            const restored = await restoreMovementAllocations(movementId);
+
+            if (restored <= 0) {
+                await createBatch({
+                    tenantId,
+                    actorId,
+                    productId: existing.product_id,
+                    color: existing.color,
+                    size: existing.size,
+                    quantity: existing.quantity,
+                    unitCost: products[0].cost_price || 0
+                });
+            }
         }
 
         await applyVariantDelta(

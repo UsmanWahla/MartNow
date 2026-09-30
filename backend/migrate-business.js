@@ -23,6 +23,7 @@ async function migrate() {
         "migrate-shop-store.sql",
         "migrate-product-options.sql",
         "migrate-variant-stock.sql",
+        "migrate-fifo-inventory.sql",
         "migrate-stock-note.sql",
         "migrate-platform-stores.sql",
         "migrate-store-categories.sql",

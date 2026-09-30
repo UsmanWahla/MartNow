@@ -27,10 +27,22 @@ import { upsertById, type Product, type StockMovement, type Supplier } from "../
 import Select from "../components/Select";
 import VariantPickers from "../components/VariantPickers";
 import { collectFieldErrors, requiredMessage } from "../utils/formValidate";
+import { formatQuantity, formatUnitCost, unitLabel } from "../productUnits";
+import { formatNumberInput } from "../numberFormat";
 
 type StockMode = "in" | "damage" | "adjust";
 
-const emptyForm = { productId: "", quantity: "", note: "", color: "", size: "" };
+const emptyForm = {
+  productId: "",
+  quantity: "",
+  quantityUnit: "",
+  unitCost: "",
+  newSalePrice: "",
+  receivedAt: "",
+  note: "",
+  color: "",
+  size: "",
+};
 
 const TYPE_LABELS: Record<string, string> = {
   opening: "Opening",
@@ -124,10 +136,14 @@ function Stock() {
     setMode(movement.type);
     setForm({
       productId: String(movement.product_id),
-      quantity: String(movement.quantity),
+      quantity: formatNumberInput(movement.quantity),
       note: movement.note || "",
       color: movement.color || "",
       size: movement.size || "",
+      quantityUnit: movement.base_unit || "piece",
+      unitCost: formatNumberInput(movement.unit_cost),
+      newSalePrice: "",
+      receivedAt: String(movement.received_at || movement.created_at).slice(0, 10),
     });
     setSupplierId(movement.supplier_id ? String(movement.supplier_id) : "");
   }
@@ -149,6 +165,12 @@ function Stock() {
               ? "Please enter a valid quantity"
               : "",
           ],
+          [
+            "unitCost",
+            mode === "in" && (!form.unitCost.trim() || Number(form.unitCost) < 0)
+              ? "Please enter the purchase cost"
+              : "",
+          ],
         ]),
         showToast
       )
@@ -164,6 +186,13 @@ function Stock() {
       supplier_id: supplierId ? Number(supplierId) : undefined,
       color: form.color,
       size: form.size,
+      quantity_unit: form.quantityUnit || undefined,
+      unit_cost: mode === "in" ? Number(form.unitCost) : undefined,
+      new_sale_price:
+        mode === "in" && form.newSalePrice.trim()
+          ? Number(form.newSalePrice)
+          : undefined,
+      received_at: mode === "in" ? form.receivedAt || undefined : undefined,
     };
 
     await run(async () => {
@@ -229,10 +258,27 @@ function Stock() {
             }`}
           >
             {inbound ? "+" : "−"}
-            {movement.quantity}
+            {formatQuantity(movement.quantity)}
+            <span className="ml-1 text-xs font-medium text-slate-500">
+              {unitLabel(movement.base_unit, Number(movement.quantity))}
+            </span>
           </span>
         );
       },
+    },
+    {
+      key: "cost",
+      header: "Unit cost",
+      sortable: true,
+      sortValue: (movement) => Number(movement.unit_cost || 0),
+      render: (movement) =>
+        movement.type === "in" && movement.unit_cost != null ? (
+          <span className="font-ledger text-slate-700">
+            {formatUnitCost(movement.unit_cost)} / {movement.base_unit || "piece"}
+          </span>
+        ) : (
+          <span className="text-slate-400">—</span>
+        ),
     },
     {
       key: "note",
@@ -245,7 +291,7 @@ function Stock() {
       sortable: true,
       sortValue: (movement) => new Date(movement.created_at).getTime(),
       render: (movement) => {
-        const date = new Date(movement.created_at);
+        const date = new Date(movement.received_at || movement.created_at);
 
         return (
           <span className="whitespace-nowrap text-slate-600" title={date.toLocaleString()}>
@@ -330,7 +376,15 @@ function Stock() {
               value={form.productId}
               error={errors.productId}
               onChange={(productId) => {
-                setForm({ ...form, productId, color: "", size: "" });
+                const product = products.find((item) => String(item.id) === productId);
+                setForm({
+                  ...form,
+                  productId,
+                  color: "",
+                  size: "",
+                  quantityUnit: product?.base_unit || "piece",
+                  unitCost: mode === "in" ? formatNumberInput(product?.cost_price) : "",
+                });
                 clearError("productId");
               }}
             />
@@ -343,8 +397,10 @@ function Stock() {
             />
             <Field
               type="number"
+              label={`Quantity (${form.quantityUnit || products.find((item) => String(item.id) === form.productId)?.base_unit || "unit"})`}
               placeholder="Quantity"
-              min="1"
+              min="0.001"
+              step="0.001"
               value={form.quantity}
               error={errors.quantity}
               onChange={(quantity) => {
@@ -352,6 +408,63 @@ function Stock() {
                 clearError("quantity");
               }}
             />
+            {(() => {
+              const product = products.find((item) => String(item.id) === form.productId);
+              if (!product) return null;
+              const units = [...new Set([product.base_unit || "piece", product.sale_unit || "piece"])];
+              return units.length > 1 ? (
+                <Select
+                  label="Quantity entered in"
+                  value={form.quantityUnit || product.base_unit || "piece"}
+                  onChange={(quantityUnit) => {
+                    const conversion = Number(product.units_per_sale_unit || 1);
+                    const cost = Number(product.cost_price || 0);
+                    setForm({
+                      ...form,
+                      quantityUnit,
+                      unitCost:
+                        mode === "in"
+                          ? formatNumberInput(
+                              quantityUnit === product.sale_unit ? cost * conversion : cost
+                            )
+                          : form.unitCost,
+                    });
+                  }}
+                >
+                  {units.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
+                </Select>
+              ) : null;
+            })()}
+            {mode === "in" ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field
+                  label={`Purchase cost per ${form.quantityUnit || "unit"}`}
+                  type="number"
+                  min="0"
+                  step="0.0001"
+                  value={form.unitCost}
+                  error={errors.unitCost}
+                  onChange={(unitCost) => {
+                    setForm({ ...form, unitCost });
+                    clearError("unitCost");
+                  }}
+                />
+                <Field
+                  label="New sale price (optional)"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={form.newSalePrice}
+                  onChange={(newSalePrice) => setForm({ ...form, newSalePrice })}
+                />
+                <Field
+                  label="Purchase date"
+                  type="date"
+                  value={form.receivedAt}
+                  onChange={(receivedAt) => setForm({ ...form, receivedAt })}
+                />
+              </div>
+            ) : null}
             {mode === "in" && suppliers.length > 0 ? (
               <Select value={supplierId} onChange={setSupplierId}>
                 <option value="">Supplier (optional)</option>

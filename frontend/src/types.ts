@@ -1,5 +1,7 @@
 import type { Role } from "./auth";
 
+export { formatCardMoney, formatMoney } from "./numberFormat";
+
 export type { Role };
 
 export interface ProductImage {
@@ -39,6 +41,11 @@ export interface Product {
   colors?: ProductColor[];
   sizes?: ProductSize[];
   variants?: ProductVariant[];
+  inventory_type?: "unit" | "weight" | "volume" | "length" | "pack";
+  base_unit?: string;
+  sale_unit?: string;
+  quantity_step?: number | string;
+  units_per_sale_unit?: number | string;
 }
 
 export interface SaleItem {
@@ -46,6 +53,9 @@ export interface SaleItem {
   product_id: number;
   product: string;
   quantity: number;
+  base_quantity?: number;
+  sale_unit?: string;
+  unit_conversion?: number;
   unit_price: number | string;
   unit_cost?: number | string;
   total_amount: number | string;
@@ -79,10 +89,15 @@ export interface StockMovement {
   supplier?: string | null;
   type: string;
   quantity: number;
+  unit_cost?: number | string | null;
+  base_unit?: string;
+  sale_unit?: string;
+  units_per_sale_unit?: number | string;
   note: string | null;
   color?: string | null;
   size?: string | null;
   created_at: string;
+  received_at?: string;
 }
 
 export interface ProductLedgerEntry {
@@ -280,6 +295,7 @@ export interface PlatformOrder {
     product_id: number;
     product: string;
     quantity: number;
+    sale_unit?: string;
     unit_price?: number | string;
     total_amount: number | string;
     color?: string;
@@ -333,6 +349,12 @@ export interface ShopCartItem {
   quantity: number;
   price: number | string;
   stock: number;
+  base_stock?: number;
+  inventory_type?: Product["inventory_type"];
+  base_unit?: string;
+  sale_unit?: string;
+  quantity_step?: number;
+  units_per_sale_unit?: number;
   image_path?: string | null;
   color?: string;
   size?: string;
@@ -368,6 +390,7 @@ export interface ShopOrder {
     product_id: number;
     product: string;
     quantity: number;
+    sale_unit?: string;
     unit_price: number | string;
     total_amount: number | string;
     color?: string;
@@ -378,10 +401,6 @@ export interface ShopOrder {
 export interface AdminOrder extends ShopOrder {
   sale_id?: number | null;
   customer_id?: number;
-}
-
-export function formatMoney(value: number | string) {
-  return `PKR ${Number(value).toFixed(2)}`;
 }
 
 /** Display the canonical sale ID used as the order number in both admin tables. */
@@ -436,21 +455,6 @@ export function orderStatusTone(label: string) {
   }
 
   return "bg-slate-100 text-slate-600";
-}
-
-export function formatCardMoney(value: number | string) {
-  const amount = Number(value);
-  const abs = Math.abs(amount);
-
-  if (abs >= 1_000_000) {
-    return `PKR ${(amount / 1_000_000).toFixed(2)}M`;
-  }
-
-  if (abs >= 10_000) {
-    return `PKR ${(amount / 1_000).toFixed(1)}k`;
-  }
-
-  return formatMoney(amount);
 }
 
 export function upsertById<T extends { id: number }>(items: T[], item?: T | null) {

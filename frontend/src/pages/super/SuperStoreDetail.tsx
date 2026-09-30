@@ -24,6 +24,7 @@ import {
   type PlatformCommissionLedgerSummary,
   type PlatformStoreDetail,
 } from "../../types";
+import { formatQuantity } from "../../productUnits";
 
 const tabs = ["overview", "products", "orders", "commission"] as const;
 type StoreTab = (typeof tabs)[number];
@@ -192,7 +193,7 @@ function SuperStoreDetail() {
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          label={`Products · ${overview.stock} units`}
+          label={`Products · ${formatQuantity(overview.stock)} units`}
           value={overview.products}
           numeric={overview.products}
           icon={<IconBox className="h-5 w-5" />}

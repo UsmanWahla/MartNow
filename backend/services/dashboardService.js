@@ -49,15 +49,20 @@ async function getStats(tenantId, period = "month") {
             SELECT
                 COALESCE(SUM(total_amount), 0) AS billed,
                 COALESCE(SUM(LEAST(paid_amount, total_amount)), 0) AS collected,
-                COALESCE(SUM(
-                    CASE
-                        WHEN total_amount > 0
-                            THEN cost_amount * (LEAST(paid_amount, total_amount) / total_amount)
-                        ELSE 0
-                    END
-                ), 0) AS cost
+                COALESCE(SUM(cost_amount), 0) AS cost
             FROM sales
             WHERE ${salesFilter}
+                AND (
+                    NOT EXISTS (
+                        SELECT 1 FROM shop_orders WHERE shop_orders.sale_id = sales.id
+                    )
+                    OR EXISTS (
+                        SELECT 1
+                        FROM shop_orders
+                        WHERE shop_orders.sale_id = sales.id
+                          AND shop_orders.delivery_status = 'delivered'
+                    )
+                )
             `,
             [tenantId]
         ),
@@ -92,12 +97,12 @@ async function getStats(tenantId, period = "month") {
             FROM products
             WHERE products.user_id = ?
                 AND (
-                    products.stock < ?
+                    products.stock / NULLIF(products.units_per_sale_unit, 0) < ?
                     OR EXISTS (
                         SELECT 1
                         FROM product_variants
                         WHERE product_variants.product_id = products.id
-                            AND product_variants.stock < ?
+                            AND product_variants.stock / NULLIF(products.units_per_sale_unit, 0) < ?
                     )
                 )
             ORDER BY products.stock ASC, products.name ASC
@@ -124,11 +129,18 @@ async function getStats(tenantId, period = "month") {
         ),
         query(
             `
-            SELECT COALESCE(SUM(platform_fee), 0) AS platform_fee
-            FROM shop_orders
-            WHERE user_id = ?
-                AND delivery_status <> 'cancelled'
-                AND ${periodClause("created_at", selectedPeriod)}
+            SELECT COALESCE(SUM(
+                CASE
+                    WHEN ledger.entry_type = 'due' THEN ledger.amount
+                    WHEN ledger.entry_type = 'reversal' THEN -ledger.amount
+                    ELSE 0
+                END
+            ), 0) AS platform_fee
+            FROM platform_commission_ledger ledger
+            INNER JOIN stores ON stores.id = ledger.store_id
+            WHERE stores.tenant_user_id = ?
+                AND ledger.entry_type IN ('due', 'reversal')
+                AND ${periodClause("ledger.created_at", selectedPeriod)}
             `,
             [tenantId]
         )
@@ -140,14 +152,14 @@ async function getStats(tenantId, period = "month") {
     const udhaar = toMoney(outstanding[0].udhaar);
     const expenseTotal = toMoney(expenses[0].expenses);
     const platformFeeTotal = toMoney(platformFees[0].platform_fee);
-    const profit = toMoney(collected - cost);
+    const profit = toMoney(billed - cost);
 
     return {
         totalProducts: toNumber(counts[0].totalProducts),
         totalStock: toNumber(counts[0].totalStock),
         billed,
         collected,
-        revenue: collected,
+        revenue: billed,
         cost,
         udhaar,
         expenses: expenseTotal,

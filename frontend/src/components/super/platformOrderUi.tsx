@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Money from "../Money";
 import { onlineOrderStatusLabel, type PlatformOrder } from "../../types";
+import { formatQuantity } from "../../productUnits";
 
 export type OnlineOrderChannel = {
   delivery_by?: string | null;
@@ -90,7 +91,7 @@ export function PlatformOrderItems({ order }: { order: PlatformOrder }) {
             {item.color || item.size
               ? ` · ${[item.color, item.size].filter(Boolean).join(" / ")}`
               : ""}{" "}
-            × {item.quantity}
+            × {formatQuantity(item.quantity)} {item.sale_unit || "piece"}
           </span>
           <Money value={item.total_amount} />
         </li>

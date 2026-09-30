@@ -4,7 +4,8 @@ import VariantPickers from "./VariantPickers";
 import Money from "./Money";
 import { IconClose } from "./icons";
 import type { Product } from "../types";
-import { hasVariantOptions } from "../variantStock";
+import { findVariantStock, hasVariantOptions } from "../variantStock";
+import { productStep, saleStock } from "../productUnits";
 
 export interface SaleLine {
   productId: string;
@@ -58,16 +59,35 @@ function SaleLines({ products, lines, onChange }: SaleLinesProps) {
                 <ProductSelect
                   products={products}
                   value={line.productId}
-                  onChange={(productId) =>
-                    updateLine(index, { productId, color: "", size: "" })
-                  }
+                  onChange={(productId) => {
+                    const selected = products.find((item) => String(item.id) === productId);
+                    updateLine(index, {
+                      productId,
+                      quantity: String(productStep(selected)),
+                      color: "",
+                      size: "",
+                    });
+                  }}
                 />
               </div>
               <div className="w-20 shrink-0">
                 <Field
                   type="number"
                   placeholder="Qty"
-                  min="1"
+                  min={productStep(product)}
+                  step={productStep(product)}
+                  max={
+                    product
+                      ? saleStock(
+                          product,
+                          hasVariantOptions(product) &&
+                            ((!line.color && product.colors?.length) ||
+                              (!line.size && product.sizes?.length))
+                            ? Number(product.stock)
+                            : findVariantStock(product, line.color, line.size)
+                        )
+                      : undefined
+                  }
                   value={line.quantity}
                   onChange={(quantity) => updateLine(index, { quantity })}
                 />

@@ -4,6 +4,16 @@ const { parseListOptions, like } = require("../utils/list");
 const { ServiceError } = require("../utils/errors");
 const { recordMovement, applyVariantDelta } = require("./stockService");
 const { getProduct } = require("./productService");
+const {
+    allocateFifo,
+    restoreSaleItemAllocations,
+    createBatch
+} = require("./inventoryBatchService");
+const {
+    assertSaleQuantity,
+    toBaseQuantity,
+    roundQuantity
+} = require("../utils/productUnits");
 
 async function getSaleItems(saleId) {
     return query(
@@ -13,6 +23,9 @@ async function getSaleItems(saleId) {
             sale_items.product_id,
             products.name AS product,
             sale_items.quantity,
+            sale_items.base_quantity,
+            sale_items.sale_unit,
+            sale_items.unit_conversion,
             sale_items.unit_price,
             sale_items.unit_cost,
             sale_items.total_amount,
@@ -143,7 +156,13 @@ async function listSales(tenantId, options = {}) {
 
 async function getOwnedProduct(tenantId, productId) {
     const results = await query(
-        "SELECT id, name, price, cost_price, stock FROM products WHERE id = ? AND user_id = ? FOR UPDATE",
+        `
+        SELECT id, name, price, cost_price, stock,
+               inventory_type, base_unit, sale_unit, quantity_step, units_per_sale_unit
+        FROM products
+        WHERE id = ? AND user_id = ?
+        FOR UPDATE
+        `,
         [productId, tenantId]
     );
 
@@ -156,14 +175,11 @@ async function getOwnedProduct(tenantId, productId) {
 
 function snapshotFromProduct(product, quantity) {
     const unitPrice = toMoney(product.price);
-    const unitCost = toMoney(product.cost_price);
-    const saleQuantity = toNumber(quantity);
+    const saleQuantity = roundQuantity(quantity);
 
     return {
         unitPrice,
-        unitCost,
-        totalAmount: toMoney(unitPrice * saleQuantity),
-        costAmount: toMoney(unitCost * saleQuantity)
+        totalAmount: toMoney(unitPrice * saleQuantity)
     };
 }
 
@@ -186,38 +202,58 @@ async function applyItems(tenantId, actorId, saleId, rawItems, note) {
 
     for (const raw of rawItems) {
         const productId = toNumber(raw.product_id);
-        const quantity = toNumber(raw.quantity);
+        const requestedQuantity = roundQuantity(raw.quantity);
         const colorName = String(raw.color || "").trim();
         const sizeName = String(raw.size || "").trim();
 
-        if (!productId || quantity <= 0) {
+        if (!productId || requestedQuantity <= 0) {
             throw new ServiceError(400, "Each line needs a product and quantity");
         }
 
         const product = await getOwnedProduct(tenantId, productId);
-        await applyVariantDelta(productId, colorName, sizeName, -quantity, product.name);
+        const quantity = assertSaleQuantity(requestedQuantity, product.quantity_step);
+        const conversion = Number(product.units_per_sale_unit || 1);
+        const baseQuantity = toBaseQuantity(quantity, conversion);
+        await applyVariantDelta(productId, colorName, sizeName, -baseQuantity, product.name);
 
         const snapshot = snapshotFromProduct(product, quantity);
         totalAmount = toMoney(totalAmount + snapshot.totalAmount);
-        costAmount = toMoney(costAmount + snapshot.costAmount);
 
-        await query(
+        const itemResult = await query(
             `
             INSERT INTO sale_items
-                (sale_id, product_id, quantity, unit_price, unit_cost, total_amount, cost_amount, color, size)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (sale_id, product_id, quantity, base_quantity, sale_unit, unit_conversion,
+                 unit_price, unit_cost, total_amount, cost_amount, color, size)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, 0, ?, ?)
             `,
             [
                 saleId,
                 productId,
                 quantity,
+                baseQuantity,
+                product.sale_unit,
+                conversion,
                 snapshot.unitPrice,
-                snapshot.unitCost,
                 snapshot.totalAmount,
-                snapshot.costAmount,
                 colorName,
                 sizeName
             ]
+        );
+
+        const allocation = await allocateFifo({
+            tenantId,
+            productId,
+            color: colorName,
+            size: sizeName,
+            quantity: baseQuantity,
+            saleItemId: itemResult.insertId
+        });
+        const itemCost = toMoney(allocation.costAmount);
+        const saleUnitCost = toMoney(itemCost / quantity);
+        costAmount = toMoney(costAmount + itemCost);
+        await query(
+            "UPDATE sale_items SET unit_cost = ?, cost_amount = ? WHERE id = ?",
+            [saleUnitCost, itemCost, itemResult.insertId]
         );
 
         await recordMovement(
@@ -225,7 +261,7 @@ async function applyItems(tenantId, actorId, saleId, rawItems, note) {
             actorId,
             productId,
             "sale",
-            quantity,
+            baseQuantity,
             `${note} ${product.name}`,
             null,
             colorName,
@@ -236,7 +272,11 @@ async function applyItems(tenantId, actorId, saleId, rawItems, note) {
             firstProduct = {
                 productId,
                 quantity,
-                snapshot
+                snapshot: {
+                    ...snapshot,
+                    unitCost: saleUnitCost,
+                    costAmount: itemCost
+                }
             };
         }
     }
@@ -246,31 +286,53 @@ async function applyItems(tenantId, actorId, saleId, rawItems, note) {
 
 async function restoreItems(tenantId, actorId, saleId, note) {
     const items = await query(
-        "SELECT product_id, quantity, color, size FROM sale_items WHERE sale_id = ?",
+        `
+        SELECT id, product_id, quantity, base_quantity, unit_conversion, cost_amount, color, size
+        FROM sale_items
+        WHERE sale_id = ?
+        `,
         [saleId]
     );
 
     for (const item of items) {
         const products = await query("SELECT name FROM products WHERE id = ?", [item.product_id]);
+        const baseQuantity = roundQuantity(
+            item.base_quantity ||
+            toBaseQuantity(item.quantity, item.unit_conversion || 1)
+        );
+        const restored = await restoreSaleItemAllocations(item.id);
         await applyVariantDelta(
             item.product_id,
             item.color,
             item.size,
-            item.quantity,
+            baseQuantity,
             products[0] ? products[0].name : ""
         );
 
-        await recordMovement(
+        const movementId = await recordMovement(
             tenantId,
             actorId,
             item.product_id,
             "sale_return",
-            item.quantity,
+            baseQuantity,
             note,
             null,
             item.color,
             item.size
         );
+
+        if (restored <= 0) {
+            await createBatch({
+                tenantId,
+                actorId,
+                productId: item.product_id,
+                movementId,
+                color: item.color,
+                size: item.size,
+                quantity: baseQuantity,
+                unitCost: baseQuantity > 0 ? Number(item.cost_amount || 0) / baseQuantity : 0
+            });
+        }
     }
 
     await query("DELETE FROM sale_items WHERE sale_id = ?", [saleId]);

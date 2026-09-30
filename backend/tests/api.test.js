@@ -435,6 +435,7 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
         const handleAuthRoutes = require("../routes/auth");
         const handleCommissionRoutes = require("../routes/commission");
         const handleProductRoutes = require("../routes/products");
+        const handleStoreTypeRoutes = require("../routes/storeTypes");
 
         function mockReq({ method, url, headers = {}, body }) {
             const chunks =
@@ -515,6 +516,17 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
         assert.equal(commissionRes.data.commission_percent, 0);
         assert.equal(commissionRes.data.outstanding, 0);
 
+        const storeTypesReq = mockReq({
+            method: "GET",
+            url: "/api/store-types",
+            headers: { cookie: cookieHeader(loginRes) }
+        });
+        const storeTypesRes = mockRes();
+        await handleStoreTypeRoutes(storeTypesReq, storeTypesRes);
+        assert.equal(storeTypesRes.statusCode, 200);
+        assert.ok(storeTypesRes.data.rows.some((type) => type.name === "Bakery"));
+        assert.equal(storeTypesRes.data.rows.some((type) => type.name === "Other"), false);
+
         const cashierLoginReq = mockReq({
             method: "POST",
             url: "/api/login",
@@ -542,6 +554,15 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
         const blockedCommissionRes = mockRes();
         await handleCommissionRoutes(blockedCommissionReq, blockedCommissionRes);
         assert.equal(blockedCommissionRes.statusCode, 403);
+
+        const blockedStoreTypesReq = mockReq({
+            method: "GET",
+            url: "/api/store-types",
+            headers: { cookie: cookieHeader(cashierLoginRes) }
+        });
+        const blockedStoreTypesRes = mockRes();
+        await handleStoreTypeRoutes(blockedStoreTypesReq, blockedStoreTypesRes);
+        assert.equal(blockedStoreTypesRes.statusCode, 403);
     });
 
     it("lets a platform customer shop a store created by super admin APIs", async () => {
@@ -550,6 +571,12 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
         const profileService = require("../services/profileService");
         const shopService = require("../services/shopService");
         const shopCartService = require("../services/shopCartService");
+        const storeTypeService = require("../services/storeTypeService");
+        const storeTypes = (await storeTypeService.listActiveStoreTypes()).rows;
+        const pharmacyType = storeTypes.find((type) => type.code === "pharmacy_medical");
+        const bakeryType = storeTypes.find((type) => type.code === "bakery");
+        assert.ok(pharmacyType);
+        assert.ok(bakeryType);
         const stamp = Date.now();
         const created = await storeService.createStore({
             name: "QA Mart",
@@ -560,15 +587,20 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
             password: "Storepass1",
             delivery_enabled: 1,
             commission_percent: 10,
-            store_category: "pharmacy",
+            store_type_id: pharmacyType.id,
             logo_path: "/uploads/stores/qa-logo.webp"
         });
 
-        assert.equal(created.store.store_type, "Pharmacy");
+        assert.equal(created.store.store_type, "Pharmacy / Medical Store");
+        assert.equal(created.store.store_type_id, pharmacyType.id);
+
+        await assert.rejects(
+            () => storeService.updateStore(created.store.id, { store_type_id: 999999 }),
+            (error) => error.status === 400 && error.message === "Choose a valid store type"
+        );
 
         const typed = await storeService.updateStore(created.store.id, {
-            store_category: "other",
-            custom_store_type: "Bakery"
+            store_type_id: bakeryType.id
         });
         assert.equal(typed.store.store_type, "Bakery");
 
@@ -615,8 +647,7 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
             longitude: 73.0479,
             contact_name: "QA Contact",
             contact_phone: "03001112222",
-            store_category: "other",
-            custom_store_type: "Bakery",
+            store_type_id: bakeryType.id,
             store_description: "Fresh QA products every day",
             business_hours: "Mon-Sat, 10 AM-9 PM",
             delivery_note: "Same-day delivery in the test area",

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import PagePanel from "../../components/PagePanel";
 import AddButton from "../../components/AddButton";
@@ -15,7 +15,6 @@ import Select from "../../components/Select";
 import NoteCell from "../../components/NoteCell";
 import Money from "../../components/Money";
 import StoreLocationPicker from "../../components/StoreLocationPicker";
-import { categoryForStoreType, storeCategoryOptions } from "../../storeTypes";
 import { useToast } from "../../hooks/useToast";
 import useBusy from "../../hooks/useBusy";
 import { useServerList } from "../../hooks/useServerList";
@@ -24,13 +23,14 @@ import { getApiError } from "../../auth";
 import {
   createPlatformStore,
   fetchPlatformStores,
+  fetchStoreTypes,
   productImageUrl,
   deletePlatformStore,
   removePlatformStoreLogo,
   removePlatformStore,
   savePlatformStore,
 } from "../../api";
-import { upsertById, type PlatformStore } from "../../types";
+import { upsertById, type PlatformStore, type StoreType } from "../../types";
 import {
   collectFieldErrors,
   usernameMessage,
@@ -40,8 +40,7 @@ import {
 
 const emptyForm = {
   name: "",
-  store_category: "",
-  custom_store_type: "",
+  store_type_id: "",
   store_description: "",
   business_hours: "",
   delivery_note: "",
@@ -66,6 +65,7 @@ function SuperStores() {
   const [pendingDeactivate, setPendingDeactivate] = useState<PlatformStore | null>(null);
   const [pendingDelete, setPendingDelete] = useState<PlatformStore | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [storeTypes, setStoreTypes] = useState<StoreType[]>([]);
   const [logo, setLogo] = useState<File | null>(null);
   const [pendingLogoRemoval, setPendingLogoRemoval] = useState(false);
   const { errors, clearError, clearAll, report } = useFieldErrors();
@@ -83,6 +83,18 @@ function SuperStores() {
     (q, nextPage) => fetchPlatformStores({ q, page: nextPage }),
     (error) => showToast(getApiError(error, "Unable to load stores"))
   );
+
+  useEffect(() => {
+    async function loadStoreTypes() {
+      try {
+        setStoreTypes(await fetchStoreTypes());
+      } catch (error) {
+        showToast(getApiError(error, "Unable to load store types"));
+      }
+    }
+
+    void loadStoreTypes();
+  }, [showToast]);
 
   function closeModals() {
     setShowAdd(false);
@@ -108,10 +120,7 @@ function SuperStores() {
     setEditing(store);
     setForm({
       name: store.name,
-      store_category: categoryForStoreType(store.store_type),
-      custom_store_type: categoryForStoreType(store.store_type) === "other" && store.store_type !== "Other"
-        ? store.store_type
-        : "",
+      store_type_id: String(store.store_type_id),
       store_description: store.store_description || "",
       business_hours: store.business_hours || "",
       delivery_note: store.delivery_note || "",
@@ -133,10 +142,7 @@ function SuperStores() {
   function payload() {
     return {
       ...form,
-      store_type:
-        form.store_category === "other"
-          ? form.custom_store_type.trim()
-          : storeCategoryOptions.find((option) => option.value === form.store_category)?.label || "",
+      store_type_id: Number(form.store_type_id),
       commission_percent: Number(form.commission_percent) || 0,
       logo,
     };
@@ -145,13 +151,7 @@ function SuperStores() {
   function validateStoreForm() {
     return collectFieldErrors([
       ["name", requiredMessage(form.name, "Please enter the store name")],
-      ["store_category", requiredMessage(form.store_category, "Please select the store type")],
-      [
-        "custom_store_type",
-        form.store_category === "other"
-          ? requiredMessage(form.custom_store_type, "Please enter the store type")
-          : "",
-      ],
+      ["store_type_id", requiredMessage(form.store_type_id, "Please select the store type")],
       ["address", requiredMessage(form.address, "Please enter the address")],
       ["contact_name", requiredMessage(form.contact_name, "Please enter the contact name")],
       ["username", usernameMessage(form.username)],
@@ -252,39 +252,18 @@ function SuperStores() {
       <div>
         <Select
           label="Store type"
-          value={form.store_category}
-          error={errors.store_category}
-          onChange={(store_category) => {
-            patchForm(
-              {
-                store_category,
-                custom_store_type: store_category === "other" ? form.custom_store_type : "",
-              },
-              "store_category"
-            );
-
-            if (store_category !== "other") {
-              clearError("custom_store_type");
-            }
-          }}
+          value={form.store_type_id}
+          error={errors.store_type_id}
+          onChange={(store_type_id) => patchForm({ store_type_id }, "store_type_id")}
         >
           <option value="">Select store type</option>
-          {storeCategoryOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
+          {storeTypes.map((storeType) => (
+            <option key={storeType.id} value={storeType.id}>
+              {storeType.name}
             </option>
           ))}
         </Select>
       </div>
-        {form.store_category === "other" ? (
-          <Field
-            label="Custom store type"
-            placeholder="e.g. Bakery"
-            value={form.custom_store_type}
-            error={errors.custom_store_type}
-            onChange={(custom_store_type) => patchForm({ custom_store_type }, "custom_store_type")}
-          />
-        ) : null}
         <div>
           <label className="mb-1.5 block text-sm font-medium text-slate-700">Store description</label>
           <textarea

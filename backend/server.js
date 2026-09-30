@@ -17,6 +17,7 @@ const handleProfileRoutes = require("./routes/profile");
 const handleShopRoutes = require("./routes/shop");
 const handleOrderRoutes = require("./routes/orders");
 const handleCommissionRoutes = require("./routes/commission");
+const handleStoreTypeRoutes = require("./routes/storeTypes");
 const handleSuperRoutes = require("./routes/super");
 const handleMarketplaceRoutes = require("./routes/customer");
 const handleLocationRoutes = require("./routes/locations");
@@ -74,6 +75,10 @@ const server = http.createServer(async (req, res) => {
         }
 
         if (await handleCommissionRoutes(req, res)) {
+            return;
+        }
+
+        if (await handleStoreTypeRoutes(req, res)) {
             return;
         }
 

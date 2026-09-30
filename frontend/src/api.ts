@@ -17,6 +17,7 @@ import {
   type ShopSettings,
   type StaffMember,
   type StockMovement,
+  type StoreType,
   type Supplier,
   type PlatformStats,
   type PlatformStore,
@@ -492,6 +493,13 @@ export async function fetchSettings() {
   return response.data;
 }
 
+export async function fetchStoreTypes() {
+  const response = await axios.get<{ rows: StoreType[] }>(`${API_URL}/api/store-types`, {
+    headers: authHeader(),
+  });
+  return response.data.rows;
+}
+
 export async function saveSettings(payload: ShopSettings) {
   const response = await axios.put<{
     message: string;
@@ -553,8 +561,7 @@ export async function saveStoreProfileSettings(payload: {
   longitude?: string;
   contact_name: string;
   contact_phone: string;
-  store_category: string;
-  custom_store_type?: string;
+  store_type_id: number;
   store_description?: string;
   business_hours?: string;
   delivery_note?: string;
@@ -570,8 +577,7 @@ export async function saveStoreProfileSettings(payload: {
   form.append("longitude", payload.longitude || "");
   form.append("contact_name", payload.contact_name);
   form.append("contact_phone", payload.contact_phone);
-  form.append("store_category", payload.store_category);
-  form.append("custom_store_type", payload.custom_store_type || "");
+  form.append("store_type_id", String(payload.store_type_id));
   form.append("store_description", payload.store_description || "");
   form.append("business_hours", payload.business_hours || "");
   form.append("delivery_note", payload.delivery_note || "");
@@ -775,9 +781,7 @@ function storeForm(payload: {
   shop_slug?: string;
   delivery_enabled: boolean;
   commission_percent: number;
-  store_category: string;
-  custom_store_type?: string;
-  store_type?: string;
+  store_type_id: number;
   store_description?: string;
   business_hours?: string;
   delivery_note?: string;
@@ -795,9 +799,7 @@ function storeForm(payload: {
   form.append("shop_slug", payload.shop_slug || "");
   form.append("delivery_enabled", payload.delivery_enabled ? "1" : "0");
   form.append("commission_percent", String(payload.commission_percent));
-  form.append("store_category", payload.store_category);
-  form.append("custom_store_type", payload.custom_store_type || "");
-  form.append("store_type", payload.store_type || "");
+  form.append("store_type_id", String(payload.store_type_id));
   form.append("store_description", payload.store_description || "");
   form.append("business_hours", payload.business_hours || "");
   form.append("delivery_note", payload.delivery_note || "");

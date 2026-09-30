@@ -37,38 +37,43 @@ async function migrate() {
     ];
 
     for (const fileName of files) {
-        const sqlPath = path.join(__dirname, "sql", fileName);
-        const statements = getStatements(fs.readFileSync(sqlPath, "utf8"));
-
-        for (const statement of statements) {
-            try {
-                await query(statement);
-            } catch (error) {
-                if (
-                    error.code === "ER_DUP_FIELDNAME" ||
-                    error.code === "ER_TABLE_EXISTS_ERROR" ||
-                    error.code === "ER_FK_DUP_NAME" ||
-                    error.code === "ER_DUP_KEYNAME" ||
-                    error.code === "ER_CANT_DROP_FIELD_OR_KEY" ||
-                    error.errno === 1060 ||
-                    error.errno === 1050 ||
-                    error.errno === 1061 ||
-                    error.errno === 1091
-                ) {
-                    continue;
-                }
-
-                throw error;
-            }
-        }
+        await runMigrationFile(fileName);
     }
 
     await migrateStoreTypes();
+    await runMigrationFile("migrate-store-types.sql");
     await backfillVariants();
     await backfillStores();
     await require("./utils/ownerUsernames").backfillOwnerUsernames();
     await seedSuperAdmin();
     console.log("Business schema is ready.");
+}
+
+async function runMigrationFile(fileName) {
+    const sqlPath = path.join(__dirname, "sql", fileName);
+    const statements = getStatements(fs.readFileSync(sqlPath, "utf8"));
+
+    for (const statement of statements) {
+        try {
+            await query(statement);
+        } catch (error) {
+            if (
+                error.code === "ER_DUP_FIELDNAME" ||
+                error.code === "ER_TABLE_EXISTS_ERROR" ||
+                error.code === "ER_FK_DUP_NAME" ||
+                error.code === "ER_DUP_KEYNAME" ||
+                error.code === "ER_CANT_DROP_FIELD_OR_KEY" ||
+                error.errno === 1060 ||
+                error.errno === 1050 ||
+                error.errno === 1061 ||
+                error.errno === 1091
+            ) {
+                continue;
+            }
+
+            throw error;
+        }
+    }
 }
 
 async function migrateStoreTypes() {
@@ -82,23 +87,23 @@ async function migrateStoreTypes() {
             `
             UPDATE stores
             SET store_type = CASE
-                WHEN store_category = 'pharmacy' THEN 'Pharmacy'
-                WHEN store_category = 'book_shop' THEN 'Book Shop'
+                WHEN store_category = 'pharmacy' THEN 'Pharmacy / Medical Store'
+                WHEN store_category = 'book_shop' THEN 'Books & Stationery'
                 WHEN store_category = 'mart' THEN 'Mart / General Store'
                 WHEN store_category = 'clothing' THEN 'Clothing / Fashion'
                 WHEN store_category = 'electronics' THEN 'Electronics'
                 WHEN store_category = 'beauty' THEN 'Cosmetics / Beauty'
-                WHEN store_category = 'food' THEN 'Food / Restaurant'
+                WHEN store_category = 'food' THEN 'Restaurant / Fast Food'
                 WHEN store_category = 'other' AND custom_store_type IS NOT NULL
                     AND TRIM(custom_store_type) <> '' THEN custom_store_type
-                ELSE 'Other'
+                ELSE 'Mart / General Store'
             END
             WHERE store_type IS NULL OR TRIM(store_type) = ''
             `
         );
     } else {
         await query(
-            "UPDATE stores SET store_type = 'Other' WHERE store_type IS NULL OR TRIM(store_type) = ''"
+            "UPDATE stores SET store_type = 'Mart / General Store' WHERE store_type IS NULL OR TRIM(store_type) = ''"
         );
     }
 
@@ -124,6 +129,15 @@ async function migrateStoreTypes() {
 }
 
 async function backfillStores() {
+    const storeTypes = await query(
+        "SELECT id, name FROM store_types WHERE code = 'mart_general' AND is_active = 1 LIMIT 1"
+    );
+
+    if (storeTypes.length === 0) {
+        throw new Error("Default store type is missing");
+    }
+
+    const defaultStoreType = storeTypes[0];
     const owners = await query(
         `
         SELECT id, name, email, shop_name, shop_slug
@@ -149,13 +163,16 @@ async function backfillStores() {
 
         await query(
             `
-            INSERT INTO stores (tenant_user_id, name, contact_name, shop_slug, status)
-            VALUES (?, ?, ?, ?, 'active')
+            INSERT INTO stores (
+                tenant_user_id, name, contact_name, store_type_id, store_type, shop_slug, status
+            ) VALUES (?, ?, ?, ?, ?, ?, 'active')
             `,
             [
                 owner.id,
                 owner.shop_name || owner.name || "Shop",
                 owner.name || "Owner",
+                defaultStoreType.id,
+                defaultStoreType.name,
                 slug
             ]
         );

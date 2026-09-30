@@ -3,6 +3,7 @@ const db = require("./db");
 const { migrate } = require("./migrate-business");
 const authService = require("./services/authService");
 const storeService = require("./services/storeService");
+const storeTypeService = require("./services/storeTypeService");
 const productService = require("./services/productService");
 
 async function seed() {
@@ -22,6 +23,13 @@ async function seed() {
     }
 
     const stores = await storeService.listStores({ all: true });
+    const storeTypes = (await storeTypeService.listActiveStoreTypes()).rows;
+    const martType = storeTypes.find((type) => type.code === "mart_general");
+    const clothingType = storeTypes.find((type) => type.code === "clothing_fashion");
+
+    if (!martType || !clothingType) {
+        throw new Error("Required store types are missing");
+    }
 
     if (stores.total === 0) {
         const first = await storeService.createStore({
@@ -34,7 +42,8 @@ async function seed() {
             username: "mint-mart",
             password: "Storepass1",
             delivery_enabled: 1,
-            commission_percent: 5
+            commission_percent: 5,
+            store_type_id: martType.id
         });
         const second = await storeService.createStore({
             name: "Teal Traders",
@@ -46,7 +55,8 @@ async function seed() {
             username: "teal-traders",
             password: "Storepass1",
             delivery_enabled: 0,
-            commission_percent: 8
+            commission_percent: 8,
+            store_type_id: clothingType.id
         });
 
         await productService.addProduct(first.store.tenant_user_id, {

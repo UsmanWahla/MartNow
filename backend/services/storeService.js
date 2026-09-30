@@ -13,7 +13,7 @@ const { allocateSlug, slugify } = require("../utils/slug");
 const { mapShop } = require("./shopCore");
 const { mapOrderMoney } = require("../utils/orderMap");
 const { periodClause, normalizePeriod } = require("./dashboardService");
-const { readStoreType, categoryForStoreType } = require("../utils/storeCategory");
+const { requireActiveStoreType } = require("./storeTypeService");
 const { readStorefrontText } = require("../utils/storefront");
 const { parseLatitude, parseLongitude } = require("../utils/coordinates");
 const productService = require("./productService");
@@ -42,15 +42,7 @@ function readStoreInput(data, { requirePassword = true } = {}) {
     const storeDescription = readStorefrontText(data.store_description, "Store description", 500);
     const businessHours = readStorefrontText(data.business_hours, "Business hours", 160);
     const deliveryNote = readStorefrontText(data.delivery_note, "Delivery note", 250);
-    let storeType;
-
-    try {
-        storeType = readStoreType(data.store_category, data.custom_store_type, {
-            requireCustom: Object.hasOwn(data, "store_category")
-        });
-    } catch (error) {
-        throw new ServiceError(400, error.message);
-    }
+    const storeTypeId = Number(data.store_type_id);
 
     if (!name || !address || !contactName || !contactPhone || !username) {
         throw new ServiceError(
@@ -97,7 +89,7 @@ function readStoreInput(data, { requirePassword = true } = {}) {
         storeDescription,
         businessHours,
         deliveryNote,
-        storeType: storeType.storeType
+        storeTypeId
     };
 }
 
@@ -126,7 +118,8 @@ function toStoreRow(row) {
         delivery_note: row.delivery_note || "",
         delivery_enabled: Number(row.delivery_enabled) === 1,
         commission_percent: Number(row.commission_percent || 0),
-        store_type: row.store_type || "Other",
+        store_type_id: Number(row.store_type_id),
+        store_type: row.store_type_name || row.store_type || "Mart / General Store",
         shop_slug: row.shop_slug,
         status: row.status,
         created_at: row.created_at,
@@ -141,6 +134,7 @@ async function getStore(storeId) {
         `
         SELECT
             stores.*,
+            store_types.name AS store_type_name,
             users.email,
             users.username,
             (
@@ -163,6 +157,7 @@ async function getStore(storeId) {
             ) AS commission
         FROM stores
         INNER JOIN users ON users.id = stores.tenant_user_id
+        INNER JOIN store_types ON store_types.id = stores.store_type_id
         WHERE stores.id = ?
         `,
         [storeId]
@@ -182,7 +177,7 @@ async function listStores(options = {}) {
 
     if (search) {
         where +=
-            " AND (stores.name LIKE ? OR stores.shop_slug LIKE ? OR users.username LIKE ? OR users.email LIKE ? OR stores.address LIKE ? OR stores.store_type LIKE ?)";
+            " AND (stores.name LIKE ? OR stores.shop_slug LIKE ? OR users.username LIKE ? OR users.email LIKE ? OR stores.address LIKE ? OR store_types.name LIKE ?)";
         params.push(
             like(search),
             like(search),
@@ -196,6 +191,7 @@ async function listStores(options = {}) {
     const from = `
         FROM stores
         INNER JOIN users ON users.id = stores.tenant_user_id
+        INNER JOIN store_types ON store_types.id = stores.store_type_id
         ${where}
     `;
     const countRows = await query(`SELECT COUNT(*) AS n ${from}`, params);
@@ -203,6 +199,7 @@ async function listStores(options = {}) {
         `
         SELECT
             stores.*,
+            store_types.name AS store_type_name,
             users.email,
             users.username,
             (
@@ -315,9 +312,11 @@ async function listPublicStores() {
             stores.business_hours,
             stores.delivery_note,
             stores.delivery_enabled,
-            stores.store_type,
+            stores.store_type_id,
+            store_types.name AS store_type,
             stores.shop_slug
         FROM stores
+        INNER JOIN store_types ON store_types.id = stores.store_type_id
         WHERE stores.status = 'active'
         ORDER BY stores.name
         `
@@ -335,7 +334,8 @@ async function listPublicStores() {
             business_hours: row.business_hours || "",
             delivery_note: row.delivery_note || "",
             delivery_enabled: Number(row.delivery_enabled) === 1,
-            store_type: row.store_type || "Other",
+            store_type_id: Number(row.store_type_id),
+            store_type: row.store_type || "Mart / General Store",
             shop_slug: row.shop_slug
         }))
     };
@@ -343,6 +343,7 @@ async function listPublicStores() {
 
 async function createStore(data) {
     const input = readStoreInput(data, { requirePassword: true });
+    const storeType = await requireActiveStoreType(input.storeTypeId);
     const existing = await query("SELECT id FROM users WHERE username = ?", [input.username]);
 
     if (existing.length > 0) {
@@ -367,8 +368,8 @@ async function createStore(data) {
                 tenant_user_id, name, address, latitude, longitude,
                 contact_name, contact_phone, logo_path, store_description, business_hours,
                 delivery_note, delivery_enabled,
-                commission_percent, store_type, shop_slug, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+                commission_percent, store_type_id, store_type, shop_slug, status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
             `,
             [
                 userInsert.insertId,
@@ -384,7 +385,8 @@ async function createStore(data) {
                 input.deliveryNote,
                 input.deliveryEnabled,
                 input.commission,
-                input.storeType,
+                storeType.id,
+                storeType.name,
                 slug
             ]
         );
@@ -397,7 +399,6 @@ async function createStore(data) {
 
 async function updateStore(storeId, data) {
     const existing = await getStore(storeId);
-    const existingCategory = categoryForStoreType(existing.store_type);
     const input = readStoreInput(
         {
             name: data.name ?? existing.name,
@@ -411,12 +412,7 @@ async function updateStore(storeId, data) {
             shop_slug: data.shop_slug ?? existing.shop_slug,
             delivery_enabled: data.delivery_enabled ?? existing.delivery_enabled,
             commission_percent: data.commission_percent ?? existing.commission_percent,
-            store_category: data.store_category ?? existingCategory,
-            custom_store_type:
-                data.custom_store_type ??
-                (existingCategory === "other" && existing.store_type !== "Other"
-                    ? existing.store_type
-                    : ""),
+            store_type_id: data.store_type_id ?? existing.store_type_id,
             logo_path: data.logo_path ?? existing.logo_path,
             remove_logo: data.remove_logo ?? false,
             store_description: data.store_description ?? existing.store_description,
@@ -425,6 +421,7 @@ async function updateStore(storeId, data) {
         },
         { requirePassword: false }
     );
+    const storeType = await requireActiveStoreType(input.storeTypeId);
 
     const ownerId = existing.tenant_user_id;
     const usernameTaken = await query("SELECT id FROM users WHERE username = ? AND id <> ?", [
@@ -462,7 +459,7 @@ async function updateStore(storeId, data) {
             SET name = ?, address = ?, latitude = ?, longitude = ?,
                 contact_name = ?, contact_phone = ?, logo_path = ?,
                 store_description = ?, business_hours = ?, delivery_note = ?,
-                delivery_enabled = ?, commission_percent = ?, store_type = ?, shop_slug = ?
+                delivery_enabled = ?, commission_percent = ?, store_type_id = ?, store_type = ?, shop_slug = ?
             WHERE id = ?
             `,
             [
@@ -478,7 +475,8 @@ async function updateStore(storeId, data) {
                 input.deliveryNote,
                 input.deliveryEnabled,
                 input.commission,
-                input.storeType,
+                storeType.id,
+                storeType.name,
                 nextSlug,
                 storeId
             ]

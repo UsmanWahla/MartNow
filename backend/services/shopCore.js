@@ -40,7 +40,8 @@ function mapShop(row) {
         contact_name: row.contact_name || "",
         contact_phone: row.contact_phone || "",
         logo_path: row.logo_path || null,
-        store_type: row.store_type || "Other",
+        store_type_id: row.store_type_id == null ? null : Number(row.store_type_id),
+        store_type: row.store_type_name || row.store_type || "Mart / General Store",
         store_description: row.store_description || "",
         business_hours: row.business_hours || "",
         delivery_note: row.delivery_note || "",
@@ -65,7 +66,8 @@ async function getShopBySlug(slug) {
             stores.contact_name,
             stores.contact_phone,
             stores.logo_path,
-            stores.store_type,
+            stores.store_type_id,
+            store_types.name AS store_type_name,
             stores.store_description,
             stores.business_hours,
             stores.delivery_note,
@@ -75,6 +77,7 @@ async function getShopBySlug(slug) {
             users.low_stock_threshold
         FROM stores
         INNER JOIN users ON users.id = stores.tenant_user_id
+        INNER JOIN store_types ON store_types.id = stores.store_type_id
         WHERE stores.shop_slug = ? AND stores.status = 'active'
         LIMIT 1
         `,

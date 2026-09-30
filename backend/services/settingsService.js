@@ -3,12 +3,21 @@ const { toNumber } = require("../utils/http");
 const { ServiceError } = require("../utils/errors");
 const { toPublicUser } = require("./authService");
 const { ensureShopSlug, slugify, allocateSlug } = require("../utils/slug");
-const { readStoreType, categoryForStoreType } = require("../utils/storeCategory");
+const { requireActiveStoreType } = require("./storeTypeService");
 const { readStorefrontText } = require("../utils/storefront");
 const { parseLatitude, parseLongitude } = require("../utils/coordinates");
 
 async function getStoreRow(tenantId) {
-    const rows = await query("SELECT * FROM stores WHERE tenant_user_id = ? LIMIT 1", [tenantId]);
+    const rows = await query(
+        `
+        SELECT stores.*, store_types.name AS store_type_name
+        FROM stores
+        LEFT JOIN store_types ON store_types.id = stores.store_type_id
+        WHERE stores.tenant_user_id = ?
+        LIMIT 1
+        `,
+        [tenantId]
+    );
     return rows[0] || null;
 }
 
@@ -37,7 +46,8 @@ async function getSettings(tenantId) {
         longitude: store?.longitude == null ? null : Number(store.longitude),
         contact_name: store?.contact_name || results[0].name || "",
         contact_phone: store?.contact_phone || "",
-        store_type: store?.store_type || "Other",
+        store_type_id: store?.store_type_id == null ? null : Number(store.store_type_id),
+        store_type: store?.store_type_name || store?.store_type || "Mart / General Store",
         logo_path: store?.logo_path || null,
         store_description: store?.store_description || "",
         business_hours: store?.business_hours || "",
@@ -125,21 +135,7 @@ async function updateShopProfile(tenantId, data) {
         250
     );
     const threshold = toNumber(data.low_stock_threshold ?? store.low_stock_threshold);
-    let storeType;
-
-    try {
-        const existingCategory = categoryForStoreType(store.store_type || "Other");
-        storeType = readStoreType(
-            data.store_category ?? existingCategory,
-            data.custom_store_type ??
-                (existingCategory === "other" && store.store_type !== "Other"
-                    ? store.store_type
-                    : ""),
-            { requireCustom: Object.hasOwn(data, "store_category") }
-        ).storeType;
-    } catch (error) {
-        throw new ServiceError(400, error.message);
-    }
+    const storeType = await requireActiveStoreType(data.store_type_id ?? store.store_type_id);
 
     if (!shopName || !contactName || !contactPhone) {
         throw new ServiceError(400, "Store name, contact name and contact phone are required");
@@ -169,7 +165,7 @@ async function updateShopProfile(tenantId, data) {
             UPDATE stores
             SET name = ?, address = ?, latitude = ?, longitude = ?, contact_name = ?, contact_phone = ?,
                 logo_path = ?, store_description = ?, business_hours = ?,
-                delivery_note = ?, store_type = ?, shop_slug = ?
+                delivery_note = ?, store_type_id = ?, store_type = ?, shop_slug = ?
             WHERE tenant_user_id = ?
             `,
             [
@@ -183,7 +179,8 @@ async function updateShopProfile(tenantId, data) {
                 storeDescription,
                 businessHours,
                 deliveryNote,
-                storeType,
+                storeType.id,
+                storeType.name,
                 nextSlug,
                 tenantId
             ]

@@ -25,6 +25,7 @@ import {
   createStaff,
   fetchSettings,
   fetchStaff,
+  fetchStoreTypes,
   removeStaff,
   removeStoreProfileLogo,
   saveAccountProfile,
@@ -34,8 +35,7 @@ import {
   productImageUrl,
 } from "../api";
 import { canManageStaff, getRole } from "../roles";
-import type { StaffMember } from "../types";
-import { categoryForStoreType, storeCategoryOptions } from "../storeTypes";
+import type { StaffMember, StoreType } from "../types";
 import {
   collectFieldErrors,
   emailMessage,
@@ -111,8 +111,8 @@ function Settings() {
   const [shopName, setShopName] = useState(user?.shop_name ?? "");
   const [shopSlug, setShopSlug] = useState(user?.shop_slug ?? "");
   const [lowStock, setLowStock] = useState(String(user?.low_stock_threshold ?? 3));
-  const [storeCategory, setStoreCategory] = useState("");
-  const [customStoreType, setCustomStoreType] = useState("");
+  const [storeTypeId, setStoreTypeId] = useState("");
+  const [storeTypes, setStoreTypes] = useState<StoreType[]>([]);
   const [contactName, setContactName] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [storeAddress, setStoreAddress] = useState("");
@@ -132,17 +132,15 @@ function Settings() {
   useEffect(() => {
     async function load() {
       try {
-        const settings = await fetchSettings();
+        const [settings, availableStoreTypes] = await Promise.all([
+          fetchSettings(),
+          canEditStoreProfile ? fetchStoreTypes() : Promise.resolve([]),
+        ]);
+        setStoreTypes(availableStoreTypes);
         setShopName(settings.shop_name);
         setShopSlug(settings.shop_slug || "");
         setLowStock(String(settings.low_stock_threshold));
-        setStoreCategory(categoryForStoreType(settings.store_type || "Other"));
-        setCustomStoreType(
-          categoryForStoreType(settings.store_type || "Other") === "other" &&
-            settings.store_type !== "Other"
-            ? settings.store_type || ""
-            : ""
-        );
+        setStoreTypeId(settings.store_type_id == null ? "" : String(settings.store_type_id));
         setContactName(settings.contact_name || "");
         setContactPhone(settings.contact_phone || "");
         setStoreAddress(settings.address || "");
@@ -185,7 +183,7 @@ function Settings() {
     }
 
     void load();
-  }, [role, showToast]);
+  }, [canEditStoreProfile, role, showToast]);
 
   async function handleProfile(event: React.FormEvent) {
     event.preventDefault();
@@ -278,14 +276,8 @@ function Settings() {
               : "",
           ],
           [
-            "storeCategory",
-            canEditStoreProfile ? requiredMessage(storeCategory, "Please select the store type") : "",
-          ],
-          [
-            "customStoreType",
-            canEditStoreProfile && storeCategory === "other"
-              ? requiredMessage(customStoreType, "Please enter the store type")
-              : "",
+            "storeTypeId",
+            canEditStoreProfile ? requiredMessage(storeTypeId, "Please select the store type") : "",
           ],
           [
             "contactName",
@@ -314,8 +306,7 @@ function Settings() {
               longitude: storeLongitude,
               contact_name: contactName,
               contact_phone: contactPhone,
-              store_category: storeCategory,
-              custom_store_type: customStoreType,
+              store_type_id: Number(storeTypeId),
               store_description: storeDescription,
               business_hours: businessHours,
               delivery_note: deliveryNote,
@@ -702,36 +693,21 @@ function Settings() {
                   <>
                     <SettingField label="Store type">
                       <Select
-                        value={storeCategory}
-                        error={errors.storeCategory}
+                        value={storeTypeId}
+                        error={errors.storeTypeId}
                         onChange={(value) => {
-                          setStoreCategory(value);
-                          setCustomStoreType(value === "other" ? customStoreType : "");
-                          clearError("storeCategory");
-                          clearError("customStoreType");
+                          setStoreTypeId(value);
+                          clearError("storeTypeId");
                         }}
                       >
                         <option value="">Select store type</option>
-                        {storeCategoryOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
+                        {storeTypes.map((storeType) => (
+                          <option key={storeType.id} value={storeType.id}>
+                            {storeType.name}
                           </option>
                         ))}
                       </Select>
                     </SettingField>
-                    {storeCategory === "other" ? (
-                      <SettingField label="Custom store type">
-                        <Field
-                          value={customStoreType}
-                          error={errors.customStoreType}
-                          onChange={(value) => {
-                            setCustomStoreType(value);
-                            clearError("customStoreType");
-                          }}
-                          placeholder="e.g. Bakery"
-                        />
-                      </SettingField>
-                    ) : null}
                     <div className="grid gap-4 sm:grid-cols-2">
                       <SettingField label="Contact name">
                         <Field

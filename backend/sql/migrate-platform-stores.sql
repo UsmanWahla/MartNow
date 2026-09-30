@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS stores (
     delivery_note VARCHAR(250) NULL,
     delivery_enabled TINYINT(1) NOT NULL DEFAULT 1,
     commission_percent DECIMAL(5, 2) NOT NULL DEFAULT 0,
-    store_type VARCHAR(100) NOT NULL DEFAULT 'Other',
+    store_type VARCHAR(100) NOT NULL DEFAULT 'Mart / General Store',
     shop_slug VARCHAR(60) NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

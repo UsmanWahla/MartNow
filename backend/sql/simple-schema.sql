@@ -2,6 +2,7 @@
 -- Does not drop or change the users table
 
 SET FOREIGN_KEY_CHECKS = 0;
+DROP TABLE IF EXISTS platform_commission_ledger;
 DROP TABLE IF EXISTS stores;
 DROP TABLE IF EXISTS shop_orders;
 DROP TABLE IF EXISTS cart_items;
@@ -21,7 +22,20 @@ DROP TABLE IF EXISTS customers;
 DROP TABLE IF EXISTS suppliers;
 DROP TABLE IF EXISTS products;
 DROP TABLE IF EXISTS categories;
+DROP TABLE IF EXISTS store_types;
 SET FOREIGN_KEY_CHECKS = 1;
+
+CREATE TABLE store_types (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(60) NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    sort_order INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_store_types_code (code),
+    UNIQUE KEY uq_store_types_name (name),
+    KEY idx_store_types_active_sort (is_active, sort_order, name)
+);
 
 CREATE TABLE products (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -297,13 +311,17 @@ CREATE TABLE stores (
     delivery_note VARCHAR(250) NULL,
     delivery_enabled TINYINT(1) NOT NULL DEFAULT 1,
     commission_percent DECIMAL(5, 2) NOT NULL DEFAULT 0,
-    store_type VARCHAR(100) NOT NULL DEFAULT 'Other',
+    store_type_id INT NOT NULL,
+    -- Legacy display column retained during the safe FK migration period.
+    store_type VARCHAR(100) NOT NULL DEFAULT 'Mart / General Store',
     shop_slug VARCHAR(60) NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (tenant_user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (store_type_id) REFERENCES store_types(id),
     UNIQUE KEY uq_stores_tenant (tenant_user_id),
     UNIQUE KEY uq_stores_slug (shop_slug),
     KEY idx_stores_status (status),
+    KEY idx_stores_type_id (store_type_id),
     KEY idx_stores_type (store_type)
 );

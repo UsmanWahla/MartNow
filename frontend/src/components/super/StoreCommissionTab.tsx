@@ -177,11 +177,6 @@ function StoreCommissionTab({ store, summary, onSummaryReload }: StoreCommission
         />
       </div>
 
-      <div className="rounded-xl border border-teal-100 bg-teal-50/70 px-4 py-3 text-sm text-teal-900">
-        Commission becomes due when an online order is delivered and its payment is collected.
-        Received payments reduce the outstanding balance. Current rate: {Number(store.commission_percent)}%.
-      </div>
-
       <PagePanel>
         <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
           <AddButton label="Record payment" onClick={() => setShowSettlement(true)} />

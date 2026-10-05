@@ -405,7 +405,11 @@ async function addProduct(tenantId, data, actorId = tenantId) {
                     color: row.color,
                     size: row.size,
                     quantity: row.stock,
-                    unitCost: costPrice
+                    unitCost: costPrice,
+                    salePrice,
+                    baseUnit,
+                    saleUnit,
+                    unitConversion: unitsPerSaleUnit
                 });
             }
         }
@@ -533,26 +537,143 @@ async function deleteProduct(tenantId, productId) {
     return { message: "Product deleted" };
 }
 
+function buildSaleAuditGroups(rows) {
+    const grouped = new Map();
+
+    for (const row of rows) {
+        const saleItemId = Number(row.sale_item_id);
+
+        if (!grouped.has(saleItemId)) {
+            grouped.set(saleItemId, []);
+        }
+
+        grouped.get(saleItemId).push(row);
+    }
+
+    const sales = new Map();
+
+    for (const [saleItemId, allocations] of grouped) {
+        const first = allocations[0];
+        const baseQuantity = toNumber(first.base_quantity) || allocations.reduce(
+            (sum, row) => sum + toNumber(row.quantity),
+            0
+        );
+        const revenueAmount = toMoney(first.total_amount);
+        let allocatedRevenue = 0;
+        const mappedAllocations = allocations.map((row, index) => {
+            const quantity = roundQuantity(row.quantity);
+            const revenue = index === allocations.length - 1
+                ? toMoney(revenueAmount - allocatedRevenue)
+                : toMoney(baseQuantity > 0 ? revenueAmount * quantity / baseQuantity : 0);
+            allocatedRevenue = toMoney(allocatedRevenue + revenue);
+            const costAmount = toMoney(row.cost_amount);
+
+            return {
+                id: Number(row.id),
+                batch_id: Number(row.batch_id),
+                quantity,
+                base_unit: row.base_unit || row.batch_base_unit || "piece",
+                unit_cost: roundUnitCost(row.unit_cost),
+                cost_amount: costAmount,
+                revenue_amount: revenue,
+                profit_amount: toMoney(revenue - costAmount),
+                received_at: row.batch_received_at,
+                supplier: row.supplier || null,
+                batch_sale_price: row.batch_sale_price == null
+                    ? null
+                    : toMoney(row.batch_sale_price),
+                batch_sale_unit: row.batch_sale_unit || row.sale_unit || "piece",
+                color: row.color || "",
+                size: row.size || ""
+            };
+        });
+        const costAmount = toMoney(
+            mappedAllocations.reduce((sum, row) => sum + row.cost_amount, 0)
+        );
+
+        sales.set(saleItemId, {
+            sale_id: Number(first.sale_id),
+            sale_item_id: saleItemId,
+            sale_quantity: roundQuantity(first.sale_quantity),
+            base_quantity: roundQuantity(baseQuantity),
+            base_unit: first.base_unit || "piece",
+            sale_unit: first.sale_unit || "piece",
+            unit_conversion: roundQuantity(first.unit_conversion || 1),
+            unit_price: toMoney(first.unit_price),
+            revenue_amount: revenueAmount,
+            cost_amount: costAmount,
+            profit_amount: toMoney(revenueAmount - costAmount),
+            sold_at: first.sold_at,
+            reversed: Boolean(first.reversed_at),
+            reversed_at: first.reversed_at || null,
+            reversal_note: first.reversal_note || null,
+            allocations: mappedAllocations
+        });
+    }
+
+    return sales;
+}
+
 async function getLedger(tenantId, productId) {
     const product = await getProduct(tenantId, productId);
-    const movements = await query(
+    const [movements, allocationRows, stockValueRows] = await Promise.all([
+        query(
         `
         SELECT
             stock_movements.id,
             stock_movements.type,
             stock_movements.quantity,
+            stock_movements.unit_cost,
             stock_movements.note,
             stock_movements.created_at,
+            stock_movements.sale_item_id,
             stock_movements.color,
             stock_movements.size,
-            suppliers.name AS supplier
+            suppliers.name AS supplier,
+            inventory_batches.id AS batch_id,
+            inventory_batches.initial_quantity AS batch_initial_quantity,
+            inventory_batches.remaining_quantity AS batch_remaining_quantity,
+            inventory_batches.unit_cost AS batch_unit_cost,
+            inventory_batches.sale_price_snapshot AS batch_sale_price,
+            inventory_batches.base_unit_snapshot AS batch_base_unit,
+            inventory_batches.sale_unit_snapshot AS batch_sale_unit,
+            inventory_batches.unit_conversion_snapshot AS batch_unit_conversion,
+            inventory_batches.received_at AS batch_received_at
         FROM stock_movements
         LEFT JOIN suppliers ON suppliers.id = stock_movements.supplier_id
+        LEFT JOIN inventory_batches ON inventory_batches.stock_movement_id = stock_movements.id
         WHERE stock_movements.user_id = ? AND stock_movements.product_id = ?
         ORDER BY stock_movements.id ASC
         `,
         [tenantId, productId]
-    );
+        ),
+        query(
+            `
+            SELECT
+                audit.*,
+                inventory_batches.received_at AS batch_received_at,
+                inventory_batches.sale_price_snapshot AS batch_sale_price,
+                inventory_batches.base_unit_snapshot AS batch_base_unit,
+                inventory_batches.sale_unit_snapshot AS batch_sale_unit,
+                suppliers.name AS supplier
+            FROM sale_allocation_audit audit
+            INNER JOIN inventory_batches ON inventory_batches.id = audit.batch_id
+            LEFT JOIN suppliers ON suppliers.id = inventory_batches.supplier_id
+            WHERE audit.user_id = ? AND audit.product_id = ?
+            ORDER BY audit.sale_item_id, inventory_batches.received_at, audit.batch_id
+            `,
+            [tenantId, productId]
+        ),
+        query(
+            `
+            SELECT COALESCE(SUM(remaining_quantity * unit_cost), 0) AS stock_value
+            FROM inventory_batches
+            WHERE user_id = ? AND product_id = ?
+            `,
+            [tenantId, productId]
+        )
+    ]);
+    const saleAudits = buildSaleAuditGroups(allocationRows);
 
     let balance = 0;
     let totalIn = 0;
@@ -566,8 +687,13 @@ async function getLedger(tenantId, productId) {
         totalIn += inbound;
         totalOut += outbound;
 
+        const saleAudit = row.type === "sale" && row.sale_item_id
+            ? saleAudits.get(Number(row.sale_item_id))
+            : null;
+
         return {
             id: row.id,
+            key: `movement-${row.id}`,
             type: row.type,
             quantity,
             inbound,
@@ -577,14 +703,46 @@ async function getLedger(tenantId, productId) {
             supplier: row.supplier || null,
             color: row.color || "",
             size: row.size || "",
-            created_at: row.created_at
+            created_at: row.created_at,
+            batch_id: row.batch_id == null ? null : Number(row.batch_id),
+            batch_initial_quantity: row.batch_initial_quantity == null
+                ? null
+                : roundQuantity(row.batch_initial_quantity),
+            batch_remaining_quantity: row.batch_remaining_quantity == null
+                ? null
+                : roundQuantity(row.batch_remaining_quantity),
+            unit_cost: row.batch_unit_cost == null
+                ? row.unit_cost == null ? null : roundUnitCost(row.unit_cost)
+                : roundUnitCost(row.batch_unit_cost),
+            sale_price_snapshot: row.batch_sale_price == null
+                ? null
+                : toMoney(row.batch_sale_price),
+            base_unit: row.batch_base_unit || product.base_unit,
+            sale_unit: row.batch_sale_unit || product.sale_unit,
+            unit_conversion: row.batch_unit_conversion == null
+                ? Number(product.units_per_sale_unit || 1)
+                : roundQuantity(row.batch_unit_conversion),
+            received_at: row.batch_received_at || row.created_at,
+            ...(saleAudit || {})
         };
     });
+
+    const activeSales = [...saleAudits.values()].filter((sale) => !sale.reversed);
+    const totalRevenue = toMoney(
+        activeSales.reduce((sum, sale) => sum + sale.revenue_amount, 0)
+    );
+    const totalCost = toMoney(
+        activeSales.reduce((sum, sale) => sum + sale.cost_amount, 0)
+    );
 
     return {
         product,
         totalIn,
         totalOut,
+        totalRevenue,
+        totalCost,
+        totalProfit: toMoney(totalRevenue - totalCost),
+        stockValue: toMoney(stockValueRows[0]?.stock_value || 0),
         rows
     };
 }

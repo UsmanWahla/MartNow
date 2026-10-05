@@ -10,6 +10,7 @@ DROP TABLE IF EXISTS product_images;
 DROP TABLE IF EXISTS product_colors;
 DROP TABLE IF EXISTS product_sizes;
 DROP TABLE IF EXISTS product_variants;
+DROP TABLE IF EXISTS sale_allocation_audit;
 DROP TABLE IF EXISTS sale_item_allocations;
 DROP TABLE IF EXISTS stock_movement_allocations;
 DROP TABLE IF EXISTS inventory_batches;
@@ -172,6 +173,7 @@ CREATE TABLE stock_movements (
     user_id INT NOT NULL,
     product_id INT NOT NULL,
     supplier_id INT NULL,
+    sale_item_id INT NULL,
     type VARCHAR(20) NOT NULL,
     quantity DECIMAL(14, 3) NOT NULL,
     unit_cost DECIMAL(14, 4) NULL,
@@ -184,7 +186,8 @@ CREATE TABLE stock_movements (
     FOREIGN KEY (product_id) REFERENCES products(id),
     FOREIGN KEY (supplier_id) REFERENCES suppliers(id),
     FOREIGN KEY (created_by) REFERENCES users(id),
-    KEY idx_stock_created (created_at)
+    KEY idx_stock_created (created_at),
+    KEY idx_stock_movement_sale_item (sale_item_id)
 );
 
 CREATE TABLE inventory_batches (
@@ -198,6 +201,10 @@ CREATE TABLE inventory_batches (
     initial_quantity DECIMAL(14, 3) NOT NULL,
     remaining_quantity DECIMAL(14, 3) NOT NULL,
     unit_cost DECIMAL(14, 4) NOT NULL DEFAULT 0,
+    sale_price_snapshot DECIMAL(14, 2) NULL,
+    base_unit_snapshot VARCHAR(20) NULL,
+    sale_unit_snapshot VARCHAR(20) NULL,
+    unit_conversion_snapshot DECIMAL(14, 3) NULL,
     received_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_by INT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -222,6 +229,38 @@ CREATE TABLE sale_item_allocations (
     FOREIGN KEY (batch_id) REFERENCES inventory_batches(id),
     KEY idx_sale_allocations_item (sale_item_id),
     KEY idx_sale_allocations_batch (batch_id)
+);
+
+CREATE TABLE sale_allocation_audit (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    product_id INT NOT NULL,
+    sale_id INT NOT NULL,
+    sale_item_id INT NOT NULL,
+    batch_id INT NOT NULL,
+    quantity DECIMAL(14, 3) NOT NULL,
+    unit_cost DECIMAL(14, 4) NOT NULL,
+    cost_amount DECIMAL(14, 2) NOT NULL,
+    sale_quantity DECIMAL(14, 3) NOT NULL,
+    base_quantity DECIMAL(14, 3) NOT NULL,
+    base_unit VARCHAR(20) NOT NULL DEFAULT 'piece',
+    sale_unit VARCHAR(20) NOT NULL DEFAULT 'piece',
+    unit_conversion DECIMAL(14, 3) NOT NULL DEFAULT 1.000,
+    unit_price DECIMAL(14, 2) NOT NULL,
+    total_amount DECIMAL(14, 2) NOT NULL,
+    color VARCHAR(40) NOT NULL DEFAULT '',
+    size VARCHAR(40) NOT NULL DEFAULT '',
+    sold_at DATETIME NOT NULL,
+    reversed_at DATETIME NULL,
+    reversal_note VARCHAR(160) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+    FOREIGN KEY (batch_id) REFERENCES inventory_batches(id) ON DELETE CASCADE,
+    UNIQUE KEY uq_sale_allocation_audit (sale_item_id, batch_id),
+    KEY idx_sale_audit_product_date (user_id, product_id, sold_at, id),
+    KEY idx_sale_audit_sale (sale_id),
+    KEY idx_sale_audit_reversed (reversed_at)
 );
 
 CREATE TABLE stock_movement_allocations (

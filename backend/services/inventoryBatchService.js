@@ -33,12 +33,18 @@ async function createBatch({
     size = "",
     quantity,
     unitCost,
+    salePrice = null,
+    baseUnit = "piece",
+    saleUnit = "piece",
+    unitConversion = 1,
     receivedAt = null
 }) {
     const batchQuantity = roundQuantity(quantity);
     const cost = roundUnitCost(unitCost);
+    const price = salePrice == null ? null : toMoney(salePrice);
+    const conversion = roundQuantity(unitConversion || 1);
 
-    if (batchQuantity <= 0 || cost < 0) {
+    if (batchQuantity <= 0 || cost < 0 || (price !== null && price <= 0) || conversion <= 0) {
         throw new ServiceError(400, "Batch quantity and cost are invalid");
     }
 
@@ -46,8 +52,10 @@ async function createBatch({
         `
         INSERT INTO inventory_batches (
             user_id, product_id, stock_movement_id, supplier_id, color, size,
-            initial_quantity, remaining_quantity, unit_cost, received_at, created_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP), ?)
+            initial_quantity, remaining_quantity, unit_cost, sale_price_snapshot,
+            base_unit_snapshot, sale_unit_snapshot, unit_conversion_snapshot,
+            received_at, created_by
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP), ?)
         `,
         [
             tenantId,
@@ -59,6 +67,10 @@ async function createBatch({
             batchQuantity,
             batchQuantity,
             cost,
+            price,
+            normalizeOption(baseUnit) || "piece",
+            normalizeOption(saleUnit) || "piece",
+            conversion,
             readReceivedAt(receivedAt),
             actorId || null
         ]
@@ -130,6 +142,49 @@ async function allocateFifo({
                 `,
                 [saleItemId, batch.id, take, roundUnitCost(batch.unit_cost), allocationCost]
             );
+            await query(
+                `
+                INSERT INTO sale_allocation_audit (
+                    user_id, product_id, sale_id, sale_item_id, batch_id,
+                    quantity, unit_cost, cost_amount,
+                    sale_quantity, base_quantity, base_unit, sale_unit, unit_conversion,
+                    unit_price, total_amount, color, size, sold_at
+                )
+                SELECT
+                    sales.user_id,
+                    sale_items.product_id,
+                    sale_items.sale_id,
+                    sale_items.id,
+                    ?,
+                    ?,
+                    ?,
+                    ?,
+                    sale_items.quantity,
+                    COALESCE(
+                        sale_items.base_quantity,
+                        sale_items.quantity * sale_items.unit_conversion
+                    ),
+                    products.base_unit,
+                    sale_items.sale_unit,
+                    sale_items.unit_conversion,
+                    sale_items.unit_price,
+                    sale_items.total_amount,
+                    sale_items.color,
+                    sale_items.size,
+                    sales.created_at
+                FROM sale_items
+                INNER JOIN sales ON sales.id = sale_items.sale_id
+                INNER JOIN products ON products.id = sale_items.product_id
+                WHERE sale_items.id = ?
+                `,
+                [
+                    batch.id,
+                    take,
+                    roundUnitCost(batch.unit_cost),
+                    allocationCost,
+                    saleItemId
+                ]
+            );
         } else {
             await query(
                 `
@@ -152,7 +207,7 @@ async function allocateFifo({
     return { quantity: requested, costAmount };
 }
 
-async function restoreAllocations(table, sourceColumn, sourceId) {
+async function restoreAllocations(table, sourceColumn, sourceId, reversalNote = null) {
     const rows = await query(
         `
         SELECT allocations.batch_id, allocations.quantity
@@ -178,12 +233,29 @@ async function restoreAllocations(table, sourceColumn, sourceId) {
         restored = roundQuantity(restored + Number(row.quantity));
     }
 
+    if (table === "sale_item_allocations") {
+        await query(
+            `
+            UPDATE sale_allocation_audit
+            SET reversed_at = COALESCE(reversed_at, CURRENT_TIMESTAMP),
+                reversal_note = COALESCE(?, reversal_note)
+            WHERE sale_item_id = ? AND reversed_at IS NULL
+            `,
+            [String(reversalNote || "Sale reversed").slice(0, 160), sourceId]
+        );
+    }
+
     await query(`DELETE FROM ${table} WHERE ${sourceColumn} = ?`, [sourceId]);
     return restored;
 }
 
-function restoreSaleItemAllocations(saleItemId) {
-    return restoreAllocations("sale_item_allocations", "sale_item_id", saleItemId);
+function restoreSaleItemAllocations(saleItemId, reversalNote = null) {
+    return restoreAllocations(
+        "sale_item_allocations",
+        "sale_item_id",
+        saleItemId,
+        reversalNote
+    );
 }
 
 function restoreMovementAllocations(stockMovementId) {
@@ -197,9 +269,17 @@ function restoreMovementAllocations(stockMovementId) {
 async function removeUnusedInboundBatch(stockMovementId) {
     const rows = await query(
         `
-        SELECT id, initial_quantity, remaining_quantity
+        SELECT
+            inventory_batches.id,
+            inventory_batches.initial_quantity,
+            inventory_batches.remaining_quantity,
+            EXISTS (
+                SELECT 1
+                FROM sale_allocation_audit
+                WHERE sale_allocation_audit.batch_id = inventory_batches.id
+            ) AS used_in_sale
         FROM inventory_batches
-        WHERE stock_movement_id = ?
+        WHERE inventory_batches.stock_movement_id = ?
         FOR UPDATE
         `,
         [stockMovementId]
@@ -210,6 +290,7 @@ async function removeUnusedInboundBatch(stockMovementId) {
     }
 
     if (
+        Number(rows[0].used_in_sale) === 1 ||
         Math.abs(Number(rows[0].initial_quantity) - Number(rows[0].remaining_quantity)) > EPSILON
     ) {
         throw new ServiceError(
@@ -222,12 +303,33 @@ async function removeUnusedInboundBatch(stockMovementId) {
     return true;
 }
 
-async function updateInboundBatchDetails(stockMovementId, { supplierId, unitCost, receivedAt }) {
+async function updateInboundBatchDetails(
+    stockMovementId,
+    {
+        supplierId,
+        unitCost,
+        salePrice,
+        baseUnit,
+        saleUnit,
+        unitConversion,
+        receivedAt
+    }
+) {
     const rows = await query(
         `
-        SELECT id, initial_quantity, remaining_quantity, unit_cost
+        SELECT
+            inventory_batches.id,
+            inventory_batches.initial_quantity,
+            inventory_batches.remaining_quantity,
+            inventory_batches.unit_cost,
+            inventory_batches.sale_price_snapshot,
+            EXISTS (
+                SELECT 1
+                FROM sale_allocation_audit
+                WHERE sale_allocation_audit.batch_id = inventory_batches.id
+            ) AS used_in_sale
         FROM inventory_batches
-        WHERE stock_movement_id = ?
+        WHERE inventory_batches.stock_movement_id = ?
         FOR UPDATE
         `,
         [stockMovementId]
@@ -239,20 +341,48 @@ async function updateInboundBatchDetails(stockMovementId, { supplierId, unitCost
 
     const nextCost = roundUnitCost(unitCost ?? rows[0].unit_cost);
     const costChanged = Math.abs(nextCost - Number(rows[0].unit_cost)) > 0.00005;
+    const nextSalePrice = salePrice == null
+        ? rows[0].sale_price_snapshot
+        : toMoney(salePrice);
+    const salePriceChanged =
+        nextSalePrice != null &&
+        Math.abs(Number(nextSalePrice) - Number(rows[0].sale_price_snapshot || 0)) > 0.005;
     const used =
+        Number(rows[0].used_in_sale) === 1 ||
         Math.abs(Number(rows[0].initial_quantity) - Number(rows[0].remaining_quantity)) > EPSILON;
 
     if (costChanged && used) {
         throw new ServiceError(400, "Cost cannot change after stock from this batch has been sold");
     }
 
+    if (salePriceChanged && used) {
+        throw new ServiceError(
+            400,
+            "Sale price snapshot cannot change after stock from this batch has been sold"
+        );
+    }
+
     await query(
         `
         UPDATE inventory_batches
-        SET supplier_id = ?, unit_cost = ?, received_at = COALESCE(?, received_at)
+        SET supplier_id = ?, unit_cost = ?,
+            sale_price_snapshot = COALESCE(?, sale_price_snapshot),
+            base_unit_snapshot = COALESCE(?, base_unit_snapshot),
+            sale_unit_snapshot = COALESCE(?, sale_unit_snapshot),
+            unit_conversion_snapshot = COALESCE(?, unit_conversion_snapshot),
+            received_at = COALESCE(?, received_at)
         WHERE id = ?
         `,
-        [supplierId || null, nextCost, readReceivedAt(receivedAt), rows[0].id]
+        [
+            supplierId || null,
+            nextCost,
+            salePrice == null ? null : toMoney(salePrice),
+            normalizeOption(baseUnit) || null,
+            normalizeOption(saleUnit) || null,
+            unitConversion == null ? null : roundQuantity(unitConversion),
+            readReceivedAt(receivedAt),
+            rows[0].id
+        ]
     );
 }
 

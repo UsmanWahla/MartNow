@@ -265,7 +265,9 @@ async function applyItems(tenantId, actorId, saleId, rawItems, note) {
             `${note} ${product.name}`,
             null,
             colorName,
-            sizeName
+            sizeName,
+            null,
+            itemResult.insertId
         );
 
         if (!firstProduct) {
@@ -295,12 +297,19 @@ async function restoreItems(tenantId, actorId, saleId, note) {
     );
 
     for (const item of items) {
-        const products = await query("SELECT name FROM products WHERE id = ?", [item.product_id]);
+        const products = await query(
+            `
+            SELECT name, price, base_unit, sale_unit, units_per_sale_unit
+            FROM products
+            WHERE id = ?
+            `,
+            [item.product_id]
+        );
         const baseQuantity = roundQuantity(
             item.base_quantity ||
             toBaseQuantity(item.quantity, item.unit_conversion || 1)
         );
-        const restored = await restoreSaleItemAllocations(item.id);
+        const restored = await restoreSaleItemAllocations(item.id, note);
         await applyVariantDelta(
             item.product_id,
             item.color,
@@ -330,7 +339,11 @@ async function restoreItems(tenantId, actorId, saleId, note) {
                 color: item.color,
                 size: item.size,
                 quantity: baseQuantity,
-                unitCost: baseQuantity > 0 ? Number(item.cost_amount || 0) / baseQuantity : 0
+                unitCost: baseQuantity > 0 ? Number(item.cost_amount || 0) / baseQuantity : 0,
+                salePrice: products[0]?.price,
+                baseUnit: products[0]?.base_unit,
+                saleUnit: products[0]?.sale_unit,
+                unitConversion: products[0]?.units_per_sale_unit
             });
         }
     }
@@ -556,6 +569,17 @@ async function updateSale(tenantId, saleId, data, actorId = tenantId) {
                 `UPDATE sales SET ${fields.join(", ")} WHERE id = ? AND user_id = ?`,
                 params
             );
+
+            if (hasDate) {
+                await query(
+                    `
+                    UPDATE sale_allocation_audit
+                    SET sold_at = ?
+                    WHERE sale_id = ? AND user_id = ? AND reversed_at IS NULL
+                    `,
+                    [String(data.created_at).trim(), saleId, tenantId]
+                );
+            }
             await shiftCustomerBalance(tenantId, customerId, due);
         }
     });

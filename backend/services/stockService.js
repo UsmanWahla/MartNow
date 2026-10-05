@@ -263,7 +263,8 @@ async function recordMovement(
     supplierId = null,
     color = "",
     size = "",
-    unitCost = null
+    unitCost = null,
+    saleItemId = null
 ) {
     const movementQty = roundQuantity(quantity);
 
@@ -276,13 +277,15 @@ async function recordMovement(
     const result = await query(
         `
         INSERT INTO stock_movements
-            (user_id, product_id, supplier_id, type, quantity, unit_cost, note, created_by, color, size)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (user_id, product_id, supplier_id, sale_item_id, type, quantity, unit_cost,
+             note, created_by, color, size)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `,
         [
             tenantId,
             productId,
             supplierId || null,
+            saleItemId || null,
             type,
             movementQty,
             unitCost == null ? null : roundUnitCost(unitCost),
@@ -332,6 +335,7 @@ async function listMovements(tenantId, options = {}) {
             stock_movements.product_id,
             products.name AS product,
             stock_movements.supplier_id,
+            stock_movements.sale_item_id,
             suppliers.name AS supplier,
             stock_movements.type,
             stock_movements.quantity,
@@ -343,7 +347,14 @@ async function listMovements(tenantId, options = {}) {
             products.sale_unit,
             products.units_per_sale_unit,
             stock_movements.created_at,
-            COALESCE(inventory_batches.received_at, stock_movements.created_at) AS received_at
+            COALESCE(inventory_batches.received_at, stock_movements.created_at) AS received_at,
+            inventory_batches.id AS batch_id,
+            inventory_batches.initial_quantity AS batch_initial_quantity,
+            inventory_batches.remaining_quantity AS batch_remaining_quantity,
+            inventory_batches.sale_price_snapshot AS batch_sale_price,
+            inventory_batches.base_unit_snapshot AS batch_base_unit,
+            inventory_batches.sale_unit_snapshot AS batch_sale_unit,
+            inventory_batches.unit_conversion_snapshot AS batch_unit_conversion
         ${from}
         ORDER BY stock_movements.id DESC
         ${limitSql}
@@ -433,6 +444,10 @@ async function addMovement(
         }
 
         const baseUnitCost = roundUnitCost(rawCost / conversion);
+        const salePrice = movementType === "in"
+            ? readOptionalSalePrice(new_sale_price)
+            : null;
+        const batchSalePrice = salePrice ?? Number(sourceProduct.price);
 
         await applyVariantDelta(
             productId,
@@ -466,10 +481,13 @@ async function addMovement(
                 size: sizeName,
                 quantity: movementQty,
                 unitCost: baseUnitCost,
+                salePrice: batchSalePrice,
+                baseUnit: sourceProduct.base_unit,
+                saleUnit: sourceProduct.sale_unit,
+                unitConversion: sourceProduct.units_per_sale_unit,
                 receivedAt: received_at
             });
 
-            const salePrice = readOptionalSalePrice(new_sale_price);
             await query(
                 `
                 UPDATE products
@@ -523,6 +541,7 @@ const MOVEMENT_SELECT = `
     stock_movements.product_id,
     products.name AS product,
     stock_movements.supplier_id,
+    stock_movements.sale_item_id,
     suppliers.name AS supplier,
     stock_movements.type,
     stock_movements.quantity,
@@ -534,7 +553,14 @@ const MOVEMENT_SELECT = `
     products.sale_unit,
     products.units_per_sale_unit,
     stock_movements.created_at,
-    COALESCE(inventory_batches.received_at, stock_movements.created_at) AS received_at
+    COALESCE(inventory_batches.received_at, stock_movements.created_at) AS received_at,
+    inventory_batches.id AS batch_id,
+    inventory_batches.initial_quantity AS batch_initial_quantity,
+    inventory_batches.remaining_quantity AS batch_remaining_quantity,
+    inventory_batches.sale_price_snapshot AS batch_sale_price,
+    inventory_batches.base_unit_snapshot AS batch_base_unit,
+    inventory_batches.sale_unit_snapshot AS batch_sale_unit,
+    inventory_batches.unit_conversion_snapshot AS batch_unit_conversion
 `;
 
 async function getMovement(tenantId, movementId) {
@@ -688,6 +714,15 @@ async function updateMovement(
         }
 
         const baseUnitCost = roundUnitCost(rawCost / conversion);
+        const salePrice = movementType === "in"
+            ? readOptionalSalePrice(new_sale_price)
+            : null;
+        const sameProduct = Number(productId) === Number(existing.product_id);
+        const batchSalePrice = salePrice ?? (
+            sameProduct && existing.type === "in" && existing.batch_sale_price != null
+                ? Number(existing.batch_sale_price)
+                : Number(targetProduct.price)
+        );
         const stockChanged =
             Number(productId) !== Number(existing.product_id) ||
             movementType !== existing.type ||
@@ -713,7 +748,11 @@ async function updateMovement(
                         ? targetProduct
                         : (
                             await query(
-                                "SELECT cost_price FROM products WHERE id = ? AND user_id = ?",
+                                `
+                                SELECT cost_price, price, base_unit, sale_unit, units_per_sale_unit
+                                FROM products
+                                WHERE id = ? AND user_id = ?
+                                `,
                                 [existing.product_id, tenantId]
                             )
                         )[0];
@@ -724,7 +763,11 @@ async function updateMovement(
                         color: existing.color,
                         size: existing.size,
                         quantity: existing.quantity,
-                        unitCost: legacyProduct ? legacyProduct.cost_price : 0
+                        unitCost: legacyProduct ? legacyProduct.cost_price : 0,
+                        salePrice: legacyProduct?.price,
+                        baseUnit: legacyProduct?.base_unit,
+                        saleUnit: legacyProduct?.sale_unit,
+                        unitConversion: legacyProduct?.units_per_sale_unit
                     });
                 }
             }
@@ -767,6 +810,10 @@ async function updateMovement(
             await updateInboundBatchDetails(movementId, {
                 supplierId,
                 unitCost: baseUnitCost,
+                salePrice: batchSalePrice,
+                baseUnit: targetProduct.base_unit,
+                saleUnit: targetProduct.sale_unit,
+                unitConversion: targetProduct.units_per_sale_unit,
                 receivedAt: received_at
             });
         }
@@ -804,6 +851,10 @@ async function updateMovement(
                     size: sizeName,
                     quantity: movementQty,
                     unitCost: baseUnitCost,
+                    salePrice: batchSalePrice,
+                    baseUnit: targetProduct.base_unit,
+                    saleUnit: targetProduct.sale_unit,
+                    unitConversion: targetProduct.units_per_sale_unit,
                     receivedAt: received_at
                 });
             } else {
@@ -819,7 +870,6 @@ async function updateMovement(
         }
 
         if (movementType === "in") {
-            const salePrice = readOptionalSalePrice(new_sale_price);
             await query(
                 `
                 UPDATE products
@@ -851,7 +901,12 @@ async function deleteMovement(tenantId, actorId, movementId) {
 
     await withTransaction(async () => {
         const products = await query(
-            "SELECT id, name, cost_price FROM products WHERE id = ? AND user_id = ? FOR UPDATE",
+            `
+            SELECT id, name, price, cost_price, base_unit, sale_unit, units_per_sale_unit
+            FROM products
+            WHERE id = ? AND user_id = ?
+            FOR UPDATE
+            `,
             [existing.product_id, tenantId]
         );
 
@@ -879,7 +934,11 @@ async function deleteMovement(tenantId, actorId, movementId) {
                     color: existing.color,
                     size: existing.size,
                     quantity: existing.quantity,
-                    unitCost: products[0].cost_price || 0
+                    unitCost: products[0].cost_price || 0,
+                    salePrice: products[0].price,
+                    baseUnit: products[0].base_unit,
+                    saleUnit: products[0].sale_unit,
+                    unitConversion: products[0].units_per_sale_unit
                 });
             }
         }

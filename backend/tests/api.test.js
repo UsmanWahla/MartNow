@@ -318,7 +318,57 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
             [[10, 0, 500], [10, 9, 600]]
         );
 
+        const fifoLedger = await productService.getLedger(userId, mango.product.id);
+        const mixedLedgerSale = fifoLedger.rows.find(
+            (row) => row.type === "sale" && row.sale_id === mixedSale.sale.id
+        );
+        assert.ok(mixedLedgerSale);
+        assert.equal(mixedLedgerSale.unit_price, 800);
+        assert.equal(mixedLedgerSale.revenue_amount, 4800);
+        assert.equal(mixedLedgerSale.cost_amount, 3100);
+        assert.equal(mixedLedgerSale.profit_amount, 1700);
+        assert.deepEqual(
+            mixedLedgerSale.allocations.map((allocation) => [
+                allocation.quantity,
+                allocation.unit_cost,
+                allocation.cost_amount,
+                allocation.batch_sale_price
+            ]),
+            [[5, 500, 2500, 700], [1, 600, 600, 800]]
+        );
+        assert.equal(fifoLedger.totalRevenue, 8300);
+        assert.equal(fifoLedger.totalCost, 5600);
+        assert.equal(fifoLedger.totalProfit, 2700);
+        assert.equal(fifoLedger.stockValue, 5400);
+
+        const [mangoRestock] = await query(
+            `
+            SELECT id
+            FROM stock_movements
+            WHERE user_id = ? AND product_id = ? AND type = 'in'
+            ORDER BY id DESC
+            LIMIT 1
+            `,
+            [userId, mango.product.id]
+        );
+        await assert.rejects(
+            () => stockService.updateMovement(userId, userId, mangoRestock.id, {
+                new_sale_price: 900
+            }),
+            (error) => error.status === 400 && error.message.includes("Sale price snapshot")
+        );
+
         await saleService.deleteSale(userId, mixedSale.sale.id);
+        const reversedLedger = await productService.getLedger(userId, mango.product.id);
+        const reversedSale = reversedLedger.rows.find(
+            (row) => row.type === "sale" && row.sale_id === mixedSale.sale.id
+        );
+        assert.equal(reversedSale.reversed, true);
+        assert.match(reversedSale.reversal_note, /deleted/);
+        assert.equal(reversedLedger.totalRevenue, 3500);
+        assert.equal(reversedLedger.totalCost, 2500);
+        assert.equal(reversedLedger.totalProfit, 1000);
+
         const halfKilo = await saleService.addSale(userId, {
             product_id: mango.product.id,
             quantity: 0.5
@@ -326,6 +376,14 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
         assert.equal(Number(halfKilo.sale.total_amount), 400);
         assert.equal(Number(halfKilo.sale.cost_amount), 250);
         assert.equal(Number(halfKilo.product.stock), 14.5);
+
+        const finalMangoLedger = await productService.getLedger(userId, mango.product.id);
+        const halfKiloLedgerSale = finalMangoLedger.rows.find(
+            (row) => row.type === "sale" && row.sale_id === halfKilo.sale.id
+        );
+        assert.equal(halfKiloLedgerSale.allocations.length, 1);
+        assert.equal(halfKiloLedgerSale.allocations[0].unit_cost, 500);
+        assert.equal(halfKiloLedgerSale.allocations[0].batch_sale_price, 700);
 
         const shirt = await productService.addProduct(userId, {
             name: "FIFO Shirt",
@@ -377,6 +435,15 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
         });
         assert.equal(Number(dozenSale.sale.cost_amount), 120);
         assert.equal(Number(dozenSale.product.stock), 12);
+        const eggLedger = await productService.getLedger(userId, eggs.product.id);
+        const dozenLedgerSale = eggLedger.rows.find(
+            (row) => row.type === "sale" && row.sale_id === dozenSale.sale.id
+        );
+        assert.equal(dozenLedgerSale.sale_quantity, 1);
+        assert.equal(dozenLedgerSale.sale_unit, "dozen");
+        assert.equal(dozenLedgerSale.allocations[0].quantity, 12);
+        assert.equal(dozenLedgerSale.allocations[0].base_unit, "piece");
+        assert.equal(dozenLedgerSale.profit_amount, 180);
     });
 
     it("lets only one concurrent sale take the last unit", async () => {

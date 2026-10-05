@@ -98,10 +98,35 @@ export interface StockMovement {
   size?: string | null;
   created_at: string;
   received_at?: string;
+  batch_id?: number | null;
+  batch_initial_quantity?: number | string | null;
+  batch_remaining_quantity?: number | string | null;
+  batch_sale_price?: number | string | null;
+  batch_base_unit?: string | null;
+  batch_sale_unit?: string | null;
+  batch_unit_conversion?: number | string | null;
+}
+
+export interface ProductLedgerAllocation {
+  id: number;
+  batch_id: number;
+  quantity: number;
+  base_unit: string;
+  unit_cost: number;
+  cost_amount: number;
+  revenue_amount: number;
+  profit_amount: number;
+  received_at: string;
+  supplier?: string | null;
+  batch_sale_price?: number | null;
+  batch_sale_unit: string;
+  color?: string | null;
+  size?: string | null;
 }
 
 export interface ProductLedgerEntry {
   id: number;
+  key?: string;
   type: string;
   quantity: number;
   inbound: number;
@@ -112,12 +137,38 @@ export interface ProductLedgerEntry {
   color?: string | null;
   size?: string | null;
   created_at: string;
+  batch_id?: number | null;
+  batch_initial_quantity?: number | null;
+  batch_remaining_quantity?: number | null;
+  unit_cost?: number | null;
+  sale_price_snapshot?: number | null;
+  base_unit?: string;
+  sale_unit?: string;
+  unit_conversion?: number;
+  received_at?: string;
+  sale_id?: number;
+  sale_item_id?: number;
+  sale_quantity?: number;
+  base_quantity?: number;
+  unit_price?: number;
+  revenue_amount?: number;
+  cost_amount?: number;
+  profit_amount?: number;
+  sold_at?: string;
+  reversed?: boolean;
+  reversed_at?: string | null;
+  reversal_note?: string | null;
+  allocations?: ProductLedgerAllocation[];
 }
 
 export interface ProductLedger {
   product: Product;
   totalIn: number;
   totalOut: number;
+  totalRevenue: number;
+  totalCost: number;
+  totalProfit: number;
+  stockValue: number;
   rows: ProductLedgerEntry[];
 }
 
@@ -537,5 +588,14 @@ export function buildProductLedger(
       };
     });
 
-  return { product, totalIn, totalOut, rows };
+  return {
+    product,
+    totalIn,
+    totalOut,
+    totalRevenue: 0,
+    totalCost: 0,
+    totalProfit: 0,
+    stockValue: 0,
+    rows,
+  };
 }

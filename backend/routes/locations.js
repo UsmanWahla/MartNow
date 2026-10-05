@@ -1,9 +1,9 @@
 const { sendJSON, getPath, getQuery } = require("../utils/http");
 const { requireRole } = require("../middleware/auth");
-const { OWNER, SUPER_ADMIN } = require("../utils/roles");
+const { OWNER, SHOPPER, SUPER_ADMIN } = require("../utils/roles");
 const locationService = require("../services/locationService");
 
-const LOCATION_ROLES = [...OWNER, ...SUPER_ADMIN];
+const LOCATION_ROLES = [...OWNER, ...SUPER_ADMIN, ...SHOPPER];
 
 async function handleLocationRoutes(req, res) {
     const path = getPath(req.url);

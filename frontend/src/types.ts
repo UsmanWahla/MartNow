@@ -442,12 +442,17 @@ export interface ShopCart {
 
 export interface ShopOrder {
   id: number;
+  sale_id?: number | null;
   shop_name?: string;
   shop_slug?: string;
+  logo_path?: string | null;
+  customer_address_id?: number | null;
   email: string;
   phone?: string | null;
   address: string;
   city: string;
+  latitude?: number | null;
+  longitude?: number | null;
   customer?: string;
   payment_method: string;
   payment_status: string;
@@ -471,8 +476,47 @@ export interface ShopOrder {
   }[];
 }
 
+export interface CustomerProfile {
+  name: string;
+  email: string;
+  phone: string;
+}
+
+export interface CustomerAddress {
+  id: number;
+  label: string;
+  recipient_name: string;
+  phone: string;
+  address: string;
+  city: string;
+  latitude: number | null;
+  longitude: number | null;
+  is_default: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface CustomerAddressInput {
+  label: string;
+  recipient_name: string;
+  phone: string;
+  address: string;
+  city: string;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
+  is_default?: boolean;
+}
+
+export interface CustomerCheckoutProfile extends CustomerProfile {
+  address: string;
+  city: string;
+  address_id: number | null;
+  latitude: number | null;
+  longitude: number | null;
+  addresses: CustomerAddress[];
+}
+
 export interface AdminOrder extends ShopOrder {
-  sale_id?: number | null;
   customer_id?: number;
 }
 

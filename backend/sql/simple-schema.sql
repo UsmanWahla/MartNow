@@ -5,6 +5,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS platform_commission_ledger;
 DROP TABLE IF EXISTS stores;
 DROP TABLE IF EXISTS shop_orders;
+DROP TABLE IF EXISTS customer_addresses;
 DROP TABLE IF EXISTS cart_items;
 DROP TABLE IF EXISTS product_images;
 DROP TABLE IF EXISTS product_colors;
@@ -115,7 +116,8 @@ CREATE TABLE customers (
     balance DECIMAL(10, 2) NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    KEY idx_customers_user_id (user_id)
+    KEY idx_customers_user_id (user_id),
+    KEY idx_customers_account_user (account_user_id, user_id)
 );
 
 CREATE TABLE suppliers (
@@ -310,16 +312,36 @@ CREATE TABLE cart_items (
     UNIQUE KEY uq_cart_user_variant (user_id, product_id, color, size)
 );
 
+CREATE TABLE customer_addresses (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    shopper_user_id INT NOT NULL,
+    label VARCHAR(40) NOT NULL DEFAULT 'Home',
+    recipient_name VARCHAR(100) NOT NULL,
+    phone VARCHAR(30) NOT NULL,
+    address VARCHAR(250) NOT NULL,
+    city VARCHAR(80) NOT NULL,
+    latitude DECIMAL(10, 7) NULL,
+    longitude DECIMAL(10, 7) NULL,
+    is_default TINYINT(1) NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (shopper_user_id) REFERENCES users(id) ON DELETE CASCADE,
+    KEY idx_customer_addresses_owner (shopper_user_id, is_default, id)
+);
+
 CREATE TABLE shop_orders (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     sale_id INT NULL,
     customer_id INT NOT NULL,
     shopper_user_id INT NOT NULL,
+    customer_address_id INT NULL,
     email VARCHAR(120) NOT NULL,
     phone VARCHAR(30) NULL,
     address VARCHAR(250) NOT NULL,
     city VARCHAR(80) NOT NULL,
+    latitude DECIMAL(10, 7) NULL,
+    longitude DECIMAL(10, 7) NULL,
     payment_method VARCHAR(20) NOT NULL DEFAULT 'cod',
     payment_status VARCHAR(20) NOT NULL DEFAULT 'pending',
     delivery_status VARCHAR(20) NOT NULL DEFAULT 'pending',
@@ -332,8 +354,10 @@ CREATE TABLE shop_orders (
     FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE SET NULL,
     FOREIGN KEY (customer_id) REFERENCES customers(id),
     FOREIGN KEY (shopper_user_id) REFERENCES users(id),
+    FOREIGN KEY (customer_address_id) REFERENCES customer_addresses(id) ON DELETE SET NULL,
     KEY idx_shop_orders_user (user_id),
-    KEY idx_shop_orders_sale (sale_id)
+    KEY idx_shop_orders_sale (sale_id),
+    KEY idx_shop_orders_shopper (shopper_user_id, created_at, id)
 );
 
 CREATE TABLE stores (

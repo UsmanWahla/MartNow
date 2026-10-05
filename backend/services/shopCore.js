@@ -130,7 +130,7 @@ async function getShopperCustomer(tenantId, shopperId) {
         return rows[0];
     }
 
-    const users = await query("SELECT id, name, email FROM users WHERE id = ?", [shopperId]);
+    const users = await query("SELECT id, name, email, phone FROM users WHERE id = ?", [shopperId]);
 
     if (users.length === 0) {
         throw new ServiceError(400, "Customer profile not found");
@@ -139,9 +139,9 @@ async function getShopperCustomer(tenantId, shopperId) {
     const insert = await query(
         `
         INSERT INTO customers (user_id, name, phone, email, account_user_id)
-        VALUES (?, ?, NULL, ?, ?)
+        VALUES (?, ?, ?, ?, ?)
         `,
-        [tenantId, users[0].name, users[0].email, shopperId]
+        [tenantId, users[0].name, users[0].phone || null, users[0].email, shopperId]
     );
 
     const created = await query(

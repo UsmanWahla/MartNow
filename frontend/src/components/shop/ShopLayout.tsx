@@ -125,7 +125,7 @@ function ShopLayout() {
                 Shop
               </NavLink>
               {shopper ? (
-                <NavLink to={`/shop/${slug}/account`} className={navClass}>
+                <NavLink to="/account/profile" className={navClass}>
                   Account
                 </NavLink>
               ) : null}
@@ -148,7 +148,7 @@ function ShopLayout() {
             {shopper ? (
               <>
                 <Link
-                  to={`/shop/${slug}/account`}
+                  to="/account/profile"
                   className="grid h-10 w-10 place-items-center rounded-xl text-teal-800 hover:bg-teal-50 md:hidden"
                   aria-label="Account"
                 >

@@ -4,11 +4,11 @@ const { platformDeliveryFee } = require("../utils/platform");
 const { mapOrderMoney } = require("../utils/orderMap");
 const { ServiceError } = require("../utils/errors");
 const { isValidEmail, normalizeEmail } = require("../utils/validation");
-const { hydrateShopMeta } = require("../utils/slug");
+const { parseLatitude, parseLongitude } = require("../utils/coordinates");
 const { addSale } = require("./saleService");
-const { toPublicUser } = require("./authService");
 const { getShopBySlug, getShopperCustomer, assertShopper } = require("./shopCore");
 const profileService = require("./profileService");
+const customerAccountService = require("./customerAccountService");
 const {
     assertSaleQuantity,
     toBaseQuantity,
@@ -237,6 +237,8 @@ function readCheckout(data, shop) {
     const city = String(data.city || "").trim();
     const paymentMethod = String(data.payment_method || "cod").trim().toLowerCase();
     const requestedBy = String(data.delivery_by || "").trim().toLowerCase();
+    const latitude = parseLatitude(data.latitude);
+    const longitude = parseLongitude(data.longitude);
 
     if (!email || !name || !phone || !address || !city) {
         throw new ServiceError(400, "Name, email, phone, address and city are required");
@@ -244,6 +246,10 @@ function readCheckout(data, shop) {
 
     if (!isValidEmail(email)) {
         throw new ServiceError(400, "Enter a valid email address");
+    }
+
+    if ((latitude == null) !== (longitude == null)) {
+        throw new ServiceError(400, "Select both latitude and longitude");
     }
 
     if (paymentMethod !== "cod") {
@@ -264,7 +270,24 @@ function readCheckout(data, shop) {
 
     const deliveryFee = deliveryBy === "platform" ? platformDeliveryFee() : 0;
 
-    return { email, name, phone, address, city, paymentMethod, deliveryBy, deliveryFee };
+    return {
+        email,
+        name,
+        phone,
+        address,
+        city,
+        latitude,
+        longitude,
+        paymentMethod,
+        deliveryBy,
+        deliveryFee,
+        saveAddress:
+            data.save_address === true ||
+            data.save_address === 1 ||
+            data.save_address === "1" ||
+            data.save_address === "true",
+        addressLabel: String(data.address_label || "Home").trim().slice(0, 40) || "Home"
+    };
 }
 
 async function getShopperOrder(slug, auth, orderId) {
@@ -324,6 +347,11 @@ async function getShopperOrder(slug, auth, orderId) {
         phone: order.phone,
         address: order.address,
         city: order.city,
+        customer_address_id: order.customer_address_id == null
+            ? null
+            : Number(order.customer_address_id),
+        latitude: order.latitude == null ? null : Number(order.latitude),
+        longitude: order.longitude == null ? null : Number(order.longitude),
         customer: order.customer,
         payment_method: order.payment_method,
         payment_status: order.payment_status,
@@ -337,9 +365,49 @@ async function getShopperOrder(slug, auth, orderId) {
 async function checkout(slug, auth, data) {
     const shop = await getShopBySlug(slug);
     assertShopper(auth, shop);
-    const details = readCheckout(data, shop);
 
     return withTransaction(async () => {
+        const requestedAddressId = toNumber(data.address_id);
+        let selectedAddress = null;
+
+        if (requestedAddressId > 0) {
+            selectedAddress = await customerAccountService.getAddress(
+                auth.id,
+                requestedAddressId,
+                true
+            );
+        }
+
+        const details = readCheckout(
+            selectedAddress
+                ? {
+                    ...data,
+                    name: selectedAddress.recipient_name,
+                    phone: selectedAddress.phone,
+                    address: selectedAddress.address,
+                    city: selectedAddress.city,
+                    latitude: selectedAddress.latitude,
+                    longitude: selectedAddress.longitude
+                }
+                : data,
+            shop
+        );
+        let customerAddressId = selectedAddress?.id || null;
+
+        if (!customerAddressId && details.saveAddress) {
+            const saved = await customerAccountService.createAddress(auth.id, {
+                label: details.addressLabel,
+                recipient_name: details.name,
+                phone: details.phone,
+                address: details.address,
+                city: details.city,
+                latitude: details.latitude,
+                longitude: details.longitude,
+                is_default: false
+            });
+            customerAddressId = saved.address.id;
+        }
+
         const cart = await query(
             `
             SELECT cart_items.product_id, cart_items.quantity, cart_items.color, cart_items.size
@@ -394,20 +462,24 @@ async function checkout(slug, auth, data) {
         const orderInsert = await query(
             `
             INSERT INTO shop_orders (
-                user_id, sale_id, customer_id, shopper_user_id,
-                email, phone, address, city, payment_method, payment_status, delivery_status,
+                user_id, sale_id, customer_id, shopper_user_id, customer_address_id,
+                email, phone, address, city, latitude, longitude,
+                payment_method, payment_status, delivery_status,
                 delivery_by, delivery_fee, commission_percent, platform_fee
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'cod', 'pending', 'pending', ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'cod', 'pending', 'pending', ?, ?, ?, ?)
             `,
             [
                 shop.tenantId,
                 saleResult.sale.id,
                 customer.id,
                 auth.id,
+                customerAddressId,
                 details.email,
                 details.phone,
                 details.address,
                 details.city,
+                details.latitude,
+                details.longitude,
                 details.deliveryBy,
                 details.deliveryFee,
                 commissionPercent,
@@ -424,14 +496,24 @@ async function checkout(slug, auth, data) {
 async function checkoutProfile(slug, auth) {
     const shop = await getShopBySlug(slug);
     assertShopper(auth, shop);
-    const customer = await getShopperCustomer(shop.tenantId, auth.id);
+    const [customer, profile, addressResult] = await Promise.all([
+        getShopperCustomer(shop.tenantId, auth.id),
+        customerAccountService.getProfile(auth.id),
+        customerAccountService.listAddresses(auth.id)
+    ]);
+    const defaultAddress =
+        addressResult.rows.find((address) => address.is_default) || addressResult.rows[0] || null;
 
     return {
-        name: customer.name,
-        email: customer.email || auth.email || "",
-        phone: customer.phone || "",
-        address: customer.address || "",
-        city: customer.city || ""
+        name: profile.name || customer.name,
+        email: profile.email || customer.email || auth.email || "",
+        phone: defaultAddress?.phone || profile.phone || customer.phone || "",
+        address: defaultAddress?.address || customer.address || "",
+        city: defaultAddress?.city || customer.city || "",
+        address_id: defaultAddress?.id || null,
+        latitude: defaultAddress?.latitude ?? null,
+        longitude: defaultAddress?.longitude ?? null,
+        addresses: addressResult.rows
     };
 }
 
@@ -451,7 +533,7 @@ async function updateShopperProfile(slug, auth, data) {
 
     const customer = await getShopperCustomer(shop.tenantId, auth.id);
 
-    await query("UPDATE users SET name = ? WHERE id = ?", [details.name, auth.id]);
+    const profileResult = await customerAccountService.updateProfile(auth.id, details);
     await query(
         `
         UPDATE customers
@@ -468,15 +550,10 @@ async function updateShopperProfile(slug, auth, data) {
         ]
     );
 
-    const rows = await query(
-        "SELECT id, name, email, role, owner_id, shop_name, shop_slug, low_stock_threshold FROM users WHERE id = ?",
-        [auth.id]
-    );
-
     return {
         message: "Profile saved",
-        user: toPublicUser(await hydrateShopMeta(rows[0])),
-        profile: await checkoutProfile(slug, { ...auth, email: rows[0].email })
+        user: profileResult.user,
+        profile: await checkoutProfile(slug, auth)
     };
 }
 

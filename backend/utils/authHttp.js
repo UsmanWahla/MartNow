@@ -13,7 +13,6 @@ function sendAuth(req, res, status, message, result) {
         {
             message,
             token: result.token,
-            refreshToken: result.refreshToken,
             user: result.user
         },
         authCookies(result.token, result.refreshToken)

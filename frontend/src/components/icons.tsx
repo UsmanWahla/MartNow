@@ -393,6 +393,20 @@ export function IconUser({ className }: IconProps) {
   );
 }
 
+export function IconMapPin({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <path
+        d="M12 21s6-5.1 6-11a6 6 0 1 0-12 0c0 5.9 6 11 6 11Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <circle cx="12" cy="10" r="2.2" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
 export function IconSortDown({ className }: IconProps) {
   return (
     <svg viewBox="0 0 16 16" fill="none" className={className} aria-hidden="true">

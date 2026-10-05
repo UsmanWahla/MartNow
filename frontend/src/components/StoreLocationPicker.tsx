@@ -21,6 +21,10 @@ interface StoreLocationPickerProps {
   value: StoreLocationValue;
   onChange: (value: StoreLocationValue) => void;
   error?: string;
+  label?: string;
+  searchPlaceholder?: string;
+  showAdvancedCoordinates?: boolean;
+  mapHeightClass?: string;
 }
 
 const DEFAULT_CENTER: [number, number] = [30.3753, 69.3451];
@@ -84,7 +88,15 @@ function MapPosition({
   );
 }
 
-function StoreLocationPicker({ value, onChange, error }: StoreLocationPickerProps) {
+function StoreLocationPicker({
+  value,
+  onChange,
+  error,
+  label = "Store location",
+  searchPlaceholder = "Search area, road, city or landmark",
+  showAdvancedCoordinates = true,
+  mapHeightClass = "h-64",
+}: StoreLocationPickerProps) {
   const [queryOverride, setQueryOverride] = useState<string | null>(null);
   const [results, setResults] = useState<StoreLocationResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -128,7 +140,7 @@ function StoreLocationPicker({ value, onChange, error }: StoreLocationPickerProp
     try {
       const locations = await searchStoreLocations(text);
       setResults(locations);
-      setMessage(locations.length ? "Select the correct store location." : "No matching location was found.");
+      setMessage(locations.length ? "Select the correct location." : "No matching location was found.");
     } catch (searchError) {
       setResults([]);
       setMessage(getApiError(searchError, "Unable to search locations"));
@@ -188,17 +200,19 @@ function StoreLocationPicker({ value, onChange, error }: StoreLocationPickerProp
   return (
     <div className="space-y-3">
       <div>
-        <label className="mb-1.5 block text-sm font-medium text-slate-700">Store location</label>
+        <label className="mb-1.5 block text-sm font-medium text-slate-700">{label}</label>
         <div className="flex flex-col gap-2 sm:flex-row">
           <input
             className={error ? "field-input field-input--error" : "field-input"}
             value={query}
-            placeholder="Search area, road, city or landmark"
+            placeholder={searchPlaceholder}
             aria-invalid={Boolean(error)}
             onChange={(event) => {
-              setQueryOverride(event.target.value);
+              const address = event.target.value;
+              setQueryOverride(address);
               setResults([]);
               setMessage("");
+              onChange({ ...value, address });
             }}
             onKeyDown={(event) => {
               if (event.key === "Enter") {
@@ -255,7 +269,7 @@ function StoreLocationPicker({ value, onChange, error }: StoreLocationPickerProp
       </div>
 
       <div className="overflow-hidden rounded-xl border border-slate-200">
-        <MapContainer center={DEFAULT_CENTER} zoom={5} className="h-64 w-full" scrollWheelZoom={false}>
+        <MapContainer center={DEFAULT_CENTER} zoom={5} className={`${mapHeightClass} w-full`} scrollWheelZoom={false}>
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -270,7 +284,7 @@ function StoreLocationPicker({ value, onChange, error }: StoreLocationPickerProp
       </div>
       {message ? <p className="text-xs leading-relaxed text-slate-500">{message}</p> : null}
 
-      <details className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+      {showAdvancedCoordinates ? <details className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
         <summary className="cursor-pointer text-sm font-medium text-slate-600">Advanced coordinates</summary>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <label className="text-sm font-medium text-slate-700">
@@ -292,7 +306,7 @@ function StoreLocationPicker({ value, onChange, error }: StoreLocationPickerProp
             />
           </label>
         </div>
-      </details>
+      </details> : null}
     </div>
   );
 }

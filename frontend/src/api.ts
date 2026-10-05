@@ -5,6 +5,10 @@ import {
   buildProductLedger,
   type AdminOrder,
   type Customer,
+  type CustomerAddress,
+  type CustomerAddressInput,
+  type CustomerCheckoutProfile,
+  type CustomerProfile,
   type DashboardPeriod,
   type DashboardStats,
   type Expense,
@@ -692,6 +696,111 @@ export async function loginCustomerAccount(payload: { email: string; password: s
   return response.data;
 }
 
+export async function fetchCustomerProfile() {
+  const response = await axios.get<CustomerProfile>(`${API_URL}/api/customer/profile`, {
+    headers: authHeader(),
+  });
+  return response.data;
+}
+
+export async function saveCustomerProfile(payload: { name: string; phone: string }) {
+  const response = await axios.put<{
+    message: string;
+    profile: CustomerProfile;
+    user: import("./auth").User;
+  }>(`${API_URL}/api/customer/profile`, payload, { headers: authHeader() });
+  return response.data;
+}
+
+export async function saveCustomerPassword(payload: {
+  currentPassword: string;
+  newPassword: string;
+}) {
+  const response = await axios.put<{ message: string }>(
+    `${API_URL}/api/customer/profile/password`,
+    payload,
+    { headers: authHeader() }
+  );
+  return response.data;
+}
+
+export async function fetchCustomerAddresses() {
+  const response = await axios.get<{ rows: CustomerAddress[] }>(
+    `${API_URL}/api/customer/addresses`,
+    { headers: authHeader() }
+  );
+  return response.data;
+}
+
+export async function createCustomerAddress(payload: CustomerAddressInput) {
+  const response = await axios.post<{ message: string; address: CustomerAddress }>(
+    `${API_URL}/api/customer/addresses`,
+    payload,
+    { headers: authHeader() }
+  );
+  return response.data;
+}
+
+export async function saveCustomerAddress(id: number, payload: CustomerAddressInput) {
+  const response = await axios.put<{ message: string; address: CustomerAddress }>(
+    `${API_URL}/api/customer/addresses/${id}`,
+    payload,
+    { headers: authHeader() }
+  );
+  return response.data;
+}
+
+export async function setDefaultCustomerAddress(id: number) {
+  const response = await axios.put<{ message: string; address: CustomerAddress }>(
+    `${API_URL}/api/customer/addresses/${id}/default`,
+    {},
+    { headers: authHeader() }
+  );
+  return response.data;
+}
+
+export async function removeCustomerAddress(id: number) {
+  const response = await axios.delete<{ message: string }>(
+    `${API_URL}/api/customer/addresses/${id}`,
+    { headers: authHeader() }
+  );
+  return response.data;
+}
+
+export type CustomerOrderStatus =
+  | "all"
+  | "pending"
+  | "processing"
+  | "dispatched"
+  | "delivered"
+  | "cancelled";
+
+export async function fetchCustomerOrders(options: {
+  page?: number;
+  limit?: number;
+  status?: CustomerOrderStatus;
+} = {}) {
+  const response = await axios.get<{ rows: ShopOrder[]; total: number }>(
+    `${API_URL}/api/customer/orders`,
+    {
+      headers: authHeader(),
+      params: {
+        page: options.page ?? 1,
+        limit: options.limit ?? 10,
+        ...(options.status && options.status !== "all" ? { status: options.status } : {}),
+      },
+    }
+  );
+  return response.data;
+}
+
+export async function fetchCustomerOrder(id: number) {
+  const response = await axios.get<ShopOrder>(`${API_URL}/api/customer/orders/${id}`, {
+    headers: authHeader(),
+  });
+  return response.data;
+}
+
 export async function signupCustomerAccount(payload: {
   name: string;
   email: string;
@@ -1007,13 +1116,7 @@ export async function removeShopCartItem(slug: string, itemId: number) {
 }
 
 export async function fetchCheckoutProfile(slug: string) {
-  const response = await axios.get<{
-    name: string;
-    email: string;
-    phone: string;
-    address: string;
-    city: string;
-  }>(`${API_URL}/api/shop/${slug}/checkout/profile`, {
+  const response = await axios.get<CustomerCheckoutProfile>(`${API_URL}/api/shop/${slug}/checkout/profile`, {
     headers: authHeader(),
   });
   return response.data;
@@ -1082,6 +1185,11 @@ export async function placeShopOrder(
     city: string;
     payment_method: "cod";
     delivery_by: "store" | "platform";
+    address_id?: number | null;
+    latitude?: number | string | null;
+    longitude?: number | string | null;
+    save_address?: boolean;
+    address_label?: string;
   }
 ) {
   const response = await axios.post<ShopOrder>(

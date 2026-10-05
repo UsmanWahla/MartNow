@@ -33,6 +33,7 @@ async function migrate() {
         "migrate-remove-store-banner.sql",
         "migrate-commission-ledger.sql",
         "migrate-delivery-by.sql",
+        "migrate-customer-account.sql",
         "migrate-username.sql",
         "migrate-user-avatar.sql"
     ];

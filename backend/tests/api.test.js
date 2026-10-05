@@ -733,6 +733,7 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
         const profileService = require("../services/profileService");
         const shopService = require("../services/shopService");
         const shopCartService = require("../services/shopCartService");
+        const customerAccountService = require("../services/customerAccountService");
         const storeTypeService = require("../services/storeTypeService");
         const storeTypes = (await storeTypeService.listActiveStoreTypes()).rows;
         const pharmacyType = storeTypes.find((type) => type.code === "pharmacy_medical");
@@ -858,30 +859,140 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
         const buyer = await authService.signupCustomer({
             name: "QA Buyer",
             email: `qa.buyer.${stamp}@example.com`,
-            password: "Buyerpass1"
+            password: "Buyerpass1",
+            phone: "03001234567"
         });
         const auth = { id: buyer.user.id, role: "customer", email: buyer.user.email };
+        const savedProfile = await customerAccountService.updateProfile(buyer.user.id, {
+            name: "QA Buyer Updated",
+            phone: "03001234567"
+        });
+        assert.equal(savedProfile.profile.phone, "03001234567");
+
+        const homeAddress = await customerAccountService.createAddress(buyer.user.id, {
+            label: "Home",
+            recipient_name: "QA Buyer Updated",
+            phone: "03001234567",
+            address: "House 1, Test Colony",
+            city: "Lahore",
+            latitude: 31.5204,
+            longitude: 74.3587,
+            is_default: false
+        });
+        assert.equal(homeAddress.address.is_default, true);
+
+        const officeAddress = await customerAccountService.createAddress(buyer.user.id, {
+            label: "Office",
+            recipient_name: "QA Buyer Office",
+            phone: "03007654321",
+            address: "Office 2, Test Road",
+            city: "Lahore",
+            latitude: 31.5101,
+            longitude: 74.3441,
+            is_default: true
+        });
+        let savedAddresses = await customerAccountService.listAddresses(buyer.user.id);
+        assert.equal(savedAddresses.rows.length, 2);
+        assert.equal(savedAddresses.rows.filter((address) => address.is_default).length, 1);
+        assert.equal(savedAddresses.rows.find((address) => address.is_default).id, officeAddress.address.id);
+        await customerAccountService.setDefaultAddress(buyer.user.id, homeAddress.address.id);
+        await assert.rejects(
+            () => customerAccountService.getAddress(userId, homeAddress.address.id),
+            (error) => error.status === 404
+        );
+
         await shopCartService.addToCart(created.store.shop_slug, auth, {
             product_id: product.product.id,
             quantity: 2
         });
         const order = await shopCartService.checkout(created.store.shop_slug, auth, {
-            name: "QA Buyer",
+            address_id: homeAddress.address.id,
+            name: "Tampered Name",
             email: buyer.user.email,
-            phone: "0300",
-            address: "House 1",
-            city: "Lahore",
+            phone: "0000",
+            address: "Tampered Address",
+            city: "Karachi",
             payment_method: "cod",
             delivery_by: "store"
         });
 
         assert.equal(Number(order.platform_fee ?? 0) >= 0, true);
+        assert.equal(order.address, "House 1, Test Colony");
+        assert.equal(order.latitude, 31.5204);
+        assert.equal(order.longitude, 74.3587);
         const orders = await query(
-            "SELECT user_id, platform_fee, commission_percent FROM shop_orders WHERE id = ?",
+            `
+            SELECT user_id, customer_address_id, latitude, longitude,
+                   platform_fee, commission_percent
+            FROM shop_orders
+            WHERE id = ?
+            `,
             [order.id]
         );
         assert.equal(Number(orders[0].user_id), tenantId);
+        assert.equal(Number(orders[0].customer_address_id), homeAddress.address.id);
+        assert.equal(Number(orders[0].latitude), 31.5204);
         assert.equal(Number(orders[0].commission_percent), 10);
+
+        await customerAccountService.updateAddress(buyer.user.id, homeAddress.address.id, {
+            ...homeAddress.address,
+            address: "Updated Home Address"
+        });
+        const historicalOrder = await customerAccountService.getOrder(buyer.user.id, order.id);
+        assert.equal(historicalOrder.address, "House 1, Test Colony");
+        assert.equal(historicalOrder.shop_slug, created.store.shop_slug);
+        await customerAccountService.deleteAddress(buyer.user.id, homeAddress.address.id);
+        const orderAfterAddressDelete = await customerAccountService.getOrder(buyer.user.id, order.id);
+        assert.equal(orderAfterAddressDelete.customer_address_id, null);
+        assert.equal(orderAfterAddressDelete.address, "House 1, Test Colony");
+
+        const secondStore = await storeService.createStore({
+            name: "QA Second Store",
+            address: "Second Test Street",
+            contact_name: "Second Owner",
+            contact_phone: "03002223333",
+            username: `qa.second.${stamp}`,
+            password: "Storepass1",
+            delivery_enabled: 1,
+            commission_percent: 0,
+            store_type_id: pharmacyType.id
+        });
+        const secondTenantId = secondStore.store.tenant_user_id;
+        const secondProduct = await productService.addProduct(secondTenantId, {
+            name: "QA Second Product",
+            price: 75,
+            cost_price: 25,
+            stock: 3
+        });
+        await shopCartService.addToCart(secondStore.store.shop_slug, auth, {
+            product_id: secondProduct.product.id,
+            quantity: 1
+        });
+        const secondOrder = await shopCartService.checkout(secondStore.store.shop_slug, auth, {
+            name: "QA Buyer Updated",
+            email: buyer.user.email,
+            phone: "03001234567",
+            address: "Manual Map Address",
+            city: "Islamabad",
+            latitude: 33.6844,
+            longitude: 73.0479,
+            save_address: true,
+            address_label: "Islamabad Home",
+            payment_method: "cod",
+            delivery_by: "store"
+        });
+        assert.equal(secondOrder.address, "Manual Map Address");
+
+        const allStoreOrders = await customerAccountService.listOrders(buyer.user.id, {
+            all: true
+        });
+        assert.equal(allStoreOrders.total, 2);
+        assert.deepEqual(
+            new Set(allStoreOrders.rows.map((row) => row.shop_slug)),
+            new Set([created.store.shop_slug, secondStore.store.shop_slug])
+        );
+        savedAddresses = await customerAccountService.listAddresses(buyer.user.id);
+        assert.equal(savedAddresses.rows.some((address) => address.label === "Islamabad Home"), true);
 
         const storeProducts = await storeService.listStoreProducts(created.store.id, { all: true });
         assert.equal(storeProducts.total, 1);
@@ -932,6 +1043,7 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
         assert.equal(settledSummary.received, 3);
         assert.equal(settledSummary.outstanding, expectedCommission - 3);
 
+        await deleteTenantData(secondTenantId, { storeId: secondStore.store.id });
         await deleteTenantData(tenantId, { storeId: created.store.id });
         await query("DELETE FROM cart_items WHERE user_id = ?", [buyer.user.id]);
         await query("DELETE FROM refresh_tokens WHERE user_id = ?", [buyer.user.id]);

@@ -21,6 +21,7 @@ function toPublicUser(user) {
         id: user.id,
         name: user.name,
         email: user.email,
+        phone: user.phone || "",
         username: user.username || "",
         role,
         tenantId,
@@ -232,14 +233,15 @@ async function signupCustomer({ name, email, password, phone }) {
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const result = await query(
-        "INSERT INTO users (name, email, password, role, owner_id) VALUES (?, ?, ?, 'customer', NULL)",
-        [trimmedName, normalizedEmail, hashedPassword]
+        "INSERT INTO users (name, email, phone, password, role, owner_id) VALUES (?, ?, ?, ?, 'customer', NULL)",
+        [trimmedName, normalizedEmail, trimmedPhone, hashedPassword]
     );
 
     return authPayload({
         id: result.insertId,
         name: trimmedName,
         email: normalizedEmail,
+        phone: trimmedPhone,
         role: "customer",
         owner_id: null,
         shop_name: "",

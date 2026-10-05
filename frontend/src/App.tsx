@@ -3,6 +3,7 @@ import Layout from "./components/Layout";
 import ShopLayout from "./components/shop/ShopLayout";
 import SuperLayout from "./components/super/SuperLayout";
 import MarketLayout from "./components/market/MarketLayout";
+import CustomerAccountLayout from "./components/customer/CustomerAccountLayout";
 import Dashboard from "./pages/Dashboard";
 import Products from "./pages/Products";
 import Stock from "./pages/Stock";
@@ -20,7 +21,6 @@ import ShopCheckout from "./pages/shop/ShopCheckout";
 import ShopLogin from "./pages/shop/ShopLogin";
 import ShopSignup from "./pages/shop/ShopSignup";
 import ShopOrderPage from "./pages/shop/ShopOrder";
-import ShopProfile from "./pages/shop/ShopProfile";
 import SuperLogin from "./pages/super/SuperLogin";
 import SuperDashboard from "./pages/super/SuperDashboard";
 import SuperStores from "./pages/super/SuperStores";
@@ -32,6 +32,11 @@ import SuperCommissionLedger from "./pages/super/SuperCommissionLedger";
 import MarketHome from "./pages/market/MarketHome";
 import CustomerLogin from "./pages/market/CustomerLogin";
 import CustomerRegister from "./pages/market/CustomerRegister";
+import CustomerProfile from "./pages/customer/CustomerProfile";
+import CustomerAddresses from "./pages/customer/CustomerAddresses";
+import CustomerOrders from "./pages/customer/CustomerOrders";
+import CustomerOrder from "./pages/customer/CustomerOrder";
+import CustomerSecurity from "./pages/customer/CustomerSecurity";
 
 function App() {
   return (
@@ -48,12 +53,23 @@ function App() {
           <Route index element={<MarketHome />} />
         </Route>
 
+        <Route path="/account" element={<MarketLayout />}>
+          <Route element={<CustomerAccountLayout />}>
+            <Route index element={<Navigate to="profile" replace />} />
+            <Route path="profile" element={<CustomerProfile />} />
+            <Route path="addresses" element={<CustomerAddresses />} />
+            <Route path="orders" element={<CustomerOrders />} />
+            <Route path="orders/:id" element={<CustomerOrder />} />
+            <Route path="security" element={<CustomerSecurity />} />
+          </Route>
+        </Route>
+
         <Route path="/shop/:slug" element={<ShopLayout />}>
           <Route index element={<ShopHome />} />
           <Route path="product/:id" element={<ShopProduct />} />
           <Route path="cart" element={<ShopCartPage />} />
           <Route path="checkout" element={<ShopCheckout />} />
-          <Route path="account" element={<ShopProfile />} />
+          <Route path="account" element={<Navigate to="/account/profile" replace />} />
           <Route path="orders/:id" element={<ShopOrderPage />} />
           <Route path="login" element={<ShopLogin />} />
           <Route path="signup" element={<ShopSignup />} />

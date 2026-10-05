@@ -1,4 +1,4 @@
-import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { IconShop, IconUser } from "../icons";
 import { clearAuth, getUser, isShopperUser } from "../../auth";
@@ -33,25 +33,42 @@ function MarketLayout() {
     navigate("/stores");
   }
 
+  const navClass = ({ isActive }: { isActive: boolean }) =>
+    `shop-nav px-2.5 ${
+      isActive
+        ? "bg-teal-50 text-teal-800"
+        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+    }`;
+
   return (
     <div className="mesh-bg flex min-h-screen flex-col font-sans text-var(--ink)">
       <header className="sticky top-0 z-20 border-b border-(--hairline) bg-white/90 shadow-[0_8px_24px_rgba(15,118,110,0.06)] backdrop-blur-md">
         <div className="h-1 bg-[linear-gradient(90deg,#0f766e,#2dd4bf,#0f766e)]" />
         <div className="mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-3 py-2.5 md:grid-cols-[1fr_auto_1fr] sm:px-6">
-          <Link to="/stores" className="flex min-w-0 items-center gap-2.5 md:col-start-1">
-            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-teal-700 text-white">
-              <IconShop className="h-4 w-4" />
-            </div>
-            <p className="truncate text-sm font-semibold text-slate-900">Marketplace</p>
-          </Link>
+          <div className="flex min-w-0 items-center gap-1 sm:gap-2 md:col-start-1">
+            <Link to="/stores" className="flex min-w-0 items-center gap-2.5">
+              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-teal-700 text-white">
+                <IconShop className="h-4 w-4" />
+              </div>
+              <p className="hidden truncate text-sm font-semibold text-slate-900 lg:block">Marketplace</p>
+            </Link>
+            <nav className="flex items-center gap-1" aria-label="Marketplace navigation">
+              <NavLink to="/stores" end className={navClass}>
+                Stores
+              </NavLink>
+              <NavLink to="/account/profile" className={navClass}>
+                Account
+              </NavLink>
+            </nav>
+          </div>
 
           <div className="flex items-center justify-end gap-1 sm:gap-2 md:col-start-3">
             {shopper ? (
               <>
-                <span className="hidden items-center gap-1 text-sm text-slate-600 sm:flex">
+                <Link to="/account/profile" className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-600 hover:bg-teal-50 hover:text-teal-800">
                   <IconUser className="h-4 w-4" />
-                  {user?.name}
-                </span>
+                  <span className="hidden sm:inline">{user?.name}</span>
+                </Link>
                 <ShopButton variant="ghost" size="sm" onClick={() => void handleLogout()}>
                   Logout
                 </ShopButton>

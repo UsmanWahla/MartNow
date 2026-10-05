@@ -54,7 +54,19 @@ Inventory and business rules below still apply to the store panel; marketplace c
 
 **Receipts.** Print a sale from the 3-dot menu.
 
-**Safer login.** Access token lasts 15 minutes; refresh token lasts 7 days. The API sets **httpOnly cookies** and also returns tokens in JSON; the React app keeps token, refresh token, and user profile in **localStorage** for Bearer requests and refresh (`auth.ts` → `setupApi`).
+**Safer login.** Access token lasts 15 minutes; refresh token lasts 7 days. The API sets both as **httpOnly cookies**, while the React app keeps only the access token and user profile in **localStorage** for its existing Bearer requests. The refresh token is never returned in API JSON and is read only from its cookie by `/api/refresh`.
+
+### Production authentication configuration
+
+Set the API origin explicitly before deployment. `CORS_ORIGINS` accepts one or more comma-separated frontend URLs; only those browser origins receive credentialed CORS headers.
+
+```env
+NODE_ENV=production
+CORS_ORIGINS=https://app.example.com
+COOKIE_SAMESITE=Lax
+```
+
+For a frontend and API hosted on different sites, use `COOKIE_SAMESITE=None`; production cookies are always marked `Secure`. `COOKIE_DOMAIN` is optional and should only be set when both applications intentionally share a parent domain.
 
 ---
 

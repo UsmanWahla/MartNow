@@ -1,47 +1,60 @@
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
-import Layout from "./components/Layout";
-import ShopLayout from "./components/shop/ShopLayout";
-import SuperLayout from "./components/super/SuperLayout";
-import MarketLayout from "./components/market/MarketLayout";
-import CustomerAccountLayout from "./components/customer/CustomerAccountLayout";
-import Dashboard from "./pages/Dashboard";
-import Products from "./pages/Products";
-import Stock from "./pages/Stock";
-import Orders from "./pages/Orders";
-import Customers from "./pages/Customers";
-import Suppliers from "./pages/Suppliers";
-import Expenses from "./pages/Expenses";
-import Commission from "./pages/Commission";
-import Settings from "./pages/Settings";
-import Login from "./pages/Login";
-import ShopHome from "./pages/shop/ShopHome";
-import ShopProduct from "./pages/shop/ShopProduct";
-import ShopCartPage from "./pages/shop/ShopCart";
-import ShopCheckout from "./pages/shop/ShopCheckout";
-import ShopLogin from "./pages/shop/ShopLogin";
-import ShopSignup from "./pages/shop/ShopSignup";
-import ShopOrderPage from "./pages/shop/ShopOrder";
-import SuperLogin from "./pages/super/SuperLogin";
-import SuperDashboard from "./pages/super/SuperDashboard";
-import SuperStores from "./pages/super/SuperStores";
-import SuperStoreTypes from "./pages/super/SuperStoreTypes";
-import SuperStoreDetail from "./pages/super/SuperStoreDetail";
-import SuperOrders from "./pages/super/SuperOrders";
-import SuperDeliveries from "./pages/super/SuperDeliveries";
-import SuperCommissionLedger from "./pages/super/SuperCommissionLedger";
-import MarketHome from "./pages/market/MarketHome";
-import CustomerLogin from "./pages/market/CustomerLogin";
-import CustomerRegister from "./pages/market/CustomerRegister";
-import CustomerProfile from "./pages/customer/CustomerProfile";
-import CustomerAddresses from "./pages/customer/CustomerAddresses";
-import CustomerOrders from "./pages/customer/CustomerOrders";
-import CustomerOrder from "./pages/customer/CustomerOrder";
-import CustomerSecurity from "./pages/customer/CustomerSecurity";
+
+const Layout = lazy(() => import("./components/Layout"));
+const ShopLayout = lazy(() => import("./components/shop/ShopLayout"));
+const SuperLayout = lazy(() => import("./components/super/SuperLayout"));
+const MarketLayout = lazy(() => import("./components/market/MarketLayout"));
+const CustomerAccountLayout = lazy(() => import("./components/customer/CustomerAccountLayout"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Products = lazy(() => import("./pages/Products"));
+const Stock = lazy(() => import("./pages/Stock"));
+const Orders = lazy(() => import("./pages/Orders"));
+const Customers = lazy(() => import("./pages/Customers"));
+const Suppliers = lazy(() => import("./pages/Suppliers"));
+const Expenses = lazy(() => import("./pages/Expenses"));
+const Commission = lazy(() => import("./pages/Commission"));
+const Settings = lazy(() => import("./pages/Settings"));
+const Login = lazy(() => import("./pages/Login"));
+const ShopHome = lazy(() => import("./pages/shop/ShopHome"));
+const ShopProduct = lazy(() => import("./pages/shop/ShopProduct"));
+const ShopCartPage = lazy(() => import("./pages/shop/ShopCart"));
+const ShopCheckout = lazy(() => import("./pages/shop/ShopCheckout"));
+const ShopLogin = lazy(() => import("./pages/shop/ShopLogin"));
+const ShopSignup = lazy(() => import("./pages/shop/ShopSignup"));
+const ShopOrderPage = lazy(() => import("./pages/shop/ShopOrder"));
+const SuperLogin = lazy(() => import("./pages/super/SuperLogin"));
+const SuperDashboard = lazy(() => import("./pages/super/SuperDashboard"));
+const SuperStores = lazy(() => import("./pages/super/SuperStores"));
+const SuperStoreTypes = lazy(() => import("./pages/super/SuperStoreTypes"));
+const SuperStoreDetail = lazy(() => import("./pages/super/SuperStoreDetail"));
+const SuperOrders = lazy(() => import("./pages/super/SuperOrders"));
+const SuperDeliveries = lazy(() => import("./pages/super/SuperDeliveries"));
+const SuperCommissionLedger = lazy(() => import("./pages/super/SuperCommissionLedger"));
+const MarketHome = lazy(() => import("./pages/market/MarketHome"));
+const CustomerLogin = lazy(() => import("./pages/market/CustomerLogin"));
+const CustomerRegister = lazy(() => import("./pages/market/CustomerRegister"));
+const CustomerProfile = lazy(() => import("./pages/customer/CustomerProfile"));
+const CustomerAddresses = lazy(() => import("./pages/customer/CustomerAddresses"));
+const CustomerOrders = lazy(() => import("./pages/customer/CustomerOrders"));
+const CustomerOrder = lazy(() => import("./pages/customer/CustomerOrder"));
+const CustomerSecurity = lazy(() => import("./pages/customer/CustomerSecurity"));
+
+function RouteFallback() {
+  return (
+    <div className="mesh-bg grid min-h-screen place-items-center px-4">
+      <div className="surface-card rounded-2xl px-5 py-4 text-sm font-semibold text-slate-600">
+        Loading...
+      </div>
+    </div>
+  );
+}
 
 function App() {
   return (
     <BrowserRouter>
-      <Routes>
+      <Suspense fallback={<RouteFallback />}>
+        <Routes>
         <Route path="/" element={<Navigate to="/stores" replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Navigate to="/register" replace />} />
@@ -97,7 +110,8 @@ function App() {
           <Route path="/commission" element={<Commission />} />
           <Route path="/settings" element={<Settings />} />
         </Route>
-      </Routes>
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }

@@ -13,6 +13,7 @@ const dashboardService = require("../services/dashboardService");
 const stockService = require("../services/stockService");
 const staffService = require("../services/staffService");
 const { requireRole } = require("../middleware/auth");
+const { authCookies, corsHeaders } = require("../utils/http");
 
 const email = `test.stock.${Date.now()}@example.com`;
 const password = "Testpass1";
@@ -57,6 +58,49 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
         assert.equal(result.user.email, email);
         assert.equal(result.user.role, "owner");
         assert.ok(result.token);
+    });
+
+    it("restricts production CORS and secures auth cookies", () => {
+        const names = [
+            "NODE_ENV",
+            "CORS_ORIGINS",
+            "COOKIE_SAMESITE",
+            "COOKIE_SAME_SITE",
+            "COOKIE_SECURE"
+        ];
+        const previous = Object.fromEntries(names.map((name) => [name, process.env[name]]));
+
+        try {
+            process.env.NODE_ENV = "production";
+            process.env.CORS_ORIGINS = "https://app.example.com";
+            delete process.env.COOKIE_SAMESITE;
+            delete process.env.COOKIE_SAME_SITE;
+            process.env.COOKIE_SECURE = "false";
+
+            const allowed = corsHeaders({
+                headers: { origin: "https://app.example.com" }
+            });
+            const blocked = corsHeaders({
+                headers: { origin: "https://untrusted.example.com" }
+            });
+            const cookies = authCookies("access-token", "refresh-token")["Set-Cookie"];
+
+            assert.equal(allowed["Access-Control-Allow-Origin"], "https://app.example.com");
+            assert.equal(allowed["Access-Control-Allow-Credentials"], "true");
+            assert.equal(allowed.Vary, "Origin");
+            assert.equal(blocked["Access-Control-Allow-Origin"], undefined);
+            assert.equal(blocked["Access-Control-Allow-Credentials"], undefined);
+            assert.ok(cookies.every((cookie) => cookie.includes("HttpOnly")));
+            assert.ok(cookies.every((cookie) => cookie.includes("Secure")));
+        } finally {
+            for (const name of names) {
+                if (previous[name] === undefined) {
+                    delete process.env[name];
+                } else {
+                    process.env[name] = previous[name];
+                }
+            }
+        }
     });
 
     it("rejects a wrong password", async () => {
@@ -556,6 +600,7 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
         await handleAuthRoutes(loginReq, loginRes);
         assert.equal(loginRes.statusCode, 200);
         assert.ok(loginRes.data.user);
+        assert.equal(loginRes.data.refreshToken, undefined);
         const cookies = loginRes.headers["Set-Cookie"];
         assert.ok(Array.isArray(cookies));
         assert.ok(cookies.some((item) => String(item).includes("HttpOnly")));

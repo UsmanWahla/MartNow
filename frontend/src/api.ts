@@ -672,7 +672,6 @@ export async function loginAccount(payload: { username: string; password: string
   const response = await axios.post<{
     message: string;
     token?: string;
-    refreshToken?: string;
     user: import("./auth").User;
   }>(`${API_URL}/api/login`, payload);
   return response.data;

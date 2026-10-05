@@ -23,11 +23,11 @@ function isLocalOrigin(origin) {
 }
 
 function getCorsOrigin(req) {
-    const origin = req.headers.origin;
+    const origin = String(req.headers.origin || "").trim();
     const allowedOrigins = configuredCorsOrigins();
 
     if (!origin) {
-        return allowedOrigins[0] || DEFAULT_CORS_ORIGIN;
+        return null;
     }
 
     if (allowedOrigins.includes(origin)) {
@@ -35,6 +35,7 @@ function getCorsOrigin(req) {
     }
 
     if (
+        process.env.NODE_ENV !== "production" &&
         allowedOrigins.length === 1 &&
         allowedOrigins[0] === DEFAULT_CORS_ORIGIN &&
         isLocalOrigin(origin)
@@ -42,16 +43,23 @@ function getCorsOrigin(req) {
         return origin;
     }
 
-    return allowedOrigins[0] || DEFAULT_CORS_ORIGIN;
+    return null;
 }
 
 function corsHeaders(req) {
-    return {
-        "Access-Control-Allow-Origin": getCorsOrigin(req),
+    const origin = getCorsOrigin(req);
+    const headers = {
         "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        "Access-Control-Allow-Credentials": "true"
+        "Access-Control-Allow-Headers": "Content-Type, Authorization"
     };
+
+    if (origin) {
+        headers["Access-Control-Allow-Origin"] = origin;
+        headers["Access-Control-Allow-Credentials"] = "true";
+        headers.Vary = "Origin";
+    }
+
+    return headers;
 }
 
 function sendJSON(req, res, statusCode, data, extraHeaders = {}) {
@@ -102,13 +110,11 @@ function cookieSameSite() {
 }
 
 function cookieSecure(sameSite) {
-    const configured = envFlag("COOKIE_SECURE");
-
-    if (configured !== null) {
-        return configured;
+    if (process.env.NODE_ENV === "production" || sameSite === "None") {
+        return true;
     }
 
-    return process.env.NODE_ENV === "production" || sameSite === "None";
+    return envFlag("COOKIE_SECURE") === true;
 }
 
 function cookieFlags() {

@@ -1,4 +1,4 @@
-import type { DashboardPeriod } from "../types";
+import type { DashboardPeriod } from "../../types";
 
 interface PeriodToggleProps {
   value: DashboardPeriod;

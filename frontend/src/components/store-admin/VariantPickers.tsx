@@ -1,7 +1,7 @@
-import Select from "./Select";
-import type { Product } from "../types";
-import { findVariantStock, hasVariantOptions, variantLabel } from "../variantStock";
-import { formatQuantity } from "../productUnits";
+import Select from "../shared/Select";
+import type { Product } from "../../types";
+import { findVariantStock, hasVariantOptions, variantLabel } from "../../variantStock";
+import { formatQuantity } from "../../productUnits";
 
 interface VariantPickersProps {
   product?: Product;

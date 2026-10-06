@@ -1,6 +1,6 @@
 import { Link, Navigate, NavLink, Outlet, useLocation } from "react-router-dom";
 import { getUser, getUserInitials, isShopperSession } from "../../auth";
-import { IconChevronLeft, IconLock, IconMapPin, IconTruck, IconUser } from "../icons";
+import { IconChevronLeft, IconLock, IconMapPin, IconTruck, IconUser } from "../shared/icons";
 
 const links = [
   { to: "/account/profile", label: "Profile", icon: IconUser },

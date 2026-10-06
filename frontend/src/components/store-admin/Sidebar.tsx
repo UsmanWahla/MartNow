@@ -9,15 +9,15 @@ import {
   IconStock,
   IconTruck,
   IconUdhaar,
-} from "./icons";
-import { getUser } from "../auth";
+} from "../shared/icons";
+import { getUser } from "../../auth";
 import {
   canManagePeople,
   canManageStock,
   canOpenSettings,
   canViewCommission,
   getRole,
-} from "../roles";
+} from "../../roles";
 import type { ReactNode } from "react";
 
 interface SidebarProps {

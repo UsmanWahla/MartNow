@@ -2,10 +2,10 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useState } from "react";
 import { getApiError, saveSession } from "../../auth";
 import { signupCustomerAccount } from "../../api";
-import PasswordInput from "../../components/PasswordInput";
-import AuthCard from "../../components/AuthCard";
-import Field from "../../components/Field";
-import SubmitButton from "../../components/SubmitButton";
+import PasswordInput from "../../components/shared/PasswordInput";
+import AuthCard from "../../components/shared/AuthCard";
+import Field from "../../components/shared/Field";
+import SubmitButton from "../../components/shared/SubmitButton";
 import { useToast } from "../../hooks/useToast";
 import { useFieldErrors } from "../../hooks/useFieldErrors";
 import {

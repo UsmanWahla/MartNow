@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import Money from "../Money";
+import Money from "../shared/Money";
 import type { ShopOrder } from "../../types";
 import { formatOrderNumber, onlineOrderStatusLabel } from "../../types";
 import { formatQuantity } from "../../productUnits";

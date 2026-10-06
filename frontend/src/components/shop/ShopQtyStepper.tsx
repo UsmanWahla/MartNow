@@ -1,4 +1,4 @@
-import { IconMinus, IconPlus } from "../icons";
+import { IconMinus, IconPlus } from "../shared/icons";
 
 interface ShopQtyStepperProps {
   value: number;

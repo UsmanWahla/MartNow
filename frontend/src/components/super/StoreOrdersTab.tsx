@@ -4,13 +4,13 @@ import { fetchPlatformOrder, fetchPlatformOrders } from "../../api";
 import { useServerList } from "../../hooks/useServerList";
 import { useToast } from "../../hooks/useToast";
 import { formatOrderNumber, type PlatformOrder } from "../../types";
-import DataTable, { type DataTableColumn } from "../DataTable";
-import DatePicker from "../DatePicker";
-import Modal from "../Modal";
-import Money from "../Money";
-import PagePanel from "../PagePanel";
-import RowMenu from "../RowMenu";
-import TableToolbar from "../TableToolbar";
+import DataTable, { type DataTableColumn } from "../shared/DataTable";
+import DatePicker from "../shared/DatePicker";
+import Modal from "../shared/Modal";
+import Money from "../shared/Money";
+import PagePanel from "../shared/PagePanel";
+import RowMenu from "../shared/RowMenu";
+import TableToolbar from "../shared/TableToolbar";
 import {
   onlineOrderDeliveryColumn,
   onlineOrderSourceColumn,

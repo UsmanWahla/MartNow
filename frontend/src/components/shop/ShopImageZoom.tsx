@@ -6,7 +6,7 @@ import {
   IconClose,
   IconMinus,
   IconPlus,
-} from "../icons";
+} from "../shared/icons";
 import type { ProductImage } from "../../types";
 
 interface ShopImageZoomProps {

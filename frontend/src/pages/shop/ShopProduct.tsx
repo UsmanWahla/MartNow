@@ -1,11 +1,11 @@
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
-import Money from "../../components/Money";
+import Money from "../../components/shared/Money";
 import ShopButton from "../../components/shop/ShopButton";
 import ShopImageZoom from "../../components/shop/ShopImageZoom";
 import ShopGalleryDots from "../../components/shop/ShopGalleryDots";
 import ShopQtyStepper from "../../components/shop/ShopQtyStepper";
-import { IconChevronLeft, IconExpand } from "../../components/icons";
+import { IconChevronLeft, IconExpand } from "../../components/shared/icons";
 import { addShopCartItem, fetchShopProduct, productImageUrl } from "../../api";
 import { getApiError, isShopperSession, shopLoginPath } from "../../auth";
 import { useToast } from "../../hooks/useToast";

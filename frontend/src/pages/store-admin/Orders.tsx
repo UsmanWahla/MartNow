@@ -1,27 +1,27 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Modal from "../components/Modal";
-import ConfirmModal from "../components/ConfirmModal";
-import RowMenu from "../components/RowMenu";
-import PagePanel from "../components/PagePanel";
-import DatePicker from "../components/DatePicker";
-import AddButton from "../components/AddButton";
-import Field from "../components/Field";
-import TableToolbar from "../components/TableToolbar";
-import ModalActions from "../components/ModalActions";
-import Select from "../components/Select";
-import SaleLines, { type SaleLine } from "../components/SaleLines";
-import ReceiptModal from "../components/ReceiptModal";
-import DataTable, { type DataTableColumn } from "../components/DataTable";
-import Money from "../components/Money";
-import { formatQuantity } from "../productUnits";
-import { formatNumberInput } from "../numberFormat";
-import { useToast } from "../hooks/useToast";
-import useBusy from "../hooks/useBusy";
-import useOpenAddFromQuery from "../hooks/useOpenAddFromQuery";
-import { useServerList } from "../hooks/useServerList";
-import { useFieldErrors } from "../hooks/useFieldErrors";
-import { getApiError, getUser } from "../auth";
-import { canEditSales, getRole } from "../roles";
+import Modal from "../../components/shared/Modal";
+import ConfirmModal from "../../components/shared/ConfirmModal";
+import RowMenu from "../../components/shared/RowMenu";
+import PagePanel from "../../components/shared/PagePanel";
+import DatePicker from "../../components/shared/DatePicker";
+import AddButton from "../../components/shared/AddButton";
+import Field from "../../components/shared/Field";
+import TableToolbar from "../../components/shared/TableToolbar";
+import ModalActions from "../../components/shared/ModalActions";
+import Select from "../../components/shared/Select";
+import SaleLines, { type SaleLine } from "../../components/store-admin/SaleLines";
+import ReceiptModal from "../../components/store-admin/ReceiptModal";
+import DataTable, { type DataTableColumn } from "../../components/shared/DataTable";
+import Money from "../../components/shared/Money";
+import { formatQuantity } from "../../productUnits";
+import { formatNumberInput } from "../../numberFormat";
+import { useToast } from "../../hooks/useToast";
+import useBusy from "../../hooks/useBusy";
+import useOpenAddFromQuery from "../../hooks/useOpenAddFromQuery";
+import { useServerList } from "../../hooks/useServerList";
+import { useFieldErrors } from "../../hooks/useFieldErrors";
+import { getApiError, getUser } from "../../auth";
+import { canEditSales, getRole } from "../../roles";
 import {
   createCustomer,
   createSale,
@@ -34,7 +34,7 @@ import {
   removeSale,
   saveSale,
   updateOrderStatus,
-} from "../api";
+} from "../../api";
 import {
   upsertById,
   formatOrderNumber,
@@ -44,12 +44,12 @@ import {
   type Customer,
   type Product,
   type Sale,
-} from "../types";
-import { collectFieldErrors, requiredMessage } from "../utils/formValidate";
+} from "../../types";
+import { collectFieldErrors, requiredMessage } from "../../utils/formValidate";
 import {
   onlineOrderDeliveryColumn,
   onlineOrderSourceColumn,
-} from "../components/super/platformOrderColumns";
+} from "../../components/super/platformOrderColumns";
 
 const emptyLine: SaleLine = { productId: "", quantity: "1" };
 

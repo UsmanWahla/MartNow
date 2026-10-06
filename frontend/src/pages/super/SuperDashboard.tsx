@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import StatCard from "../../components/StatCard";
-import PeriodToggle from "../../components/PeriodToggle";
-import PagePanel from "../../components/PagePanel";
-import Money from "../../components/Money";
-import { IconBox, IconProfit, IconSales, IconShop, IconTruck } from "../../components/icons";
+import StatCard from "../../components/shared/StatCard";
+import PeriodToggle from "../../components/shared/PeriodToggle";
+import PagePanel from "../../components/shared/PagePanel";
+import Money from "../../components/shared/Money";
+import { IconBox, IconProfit, IconSales, IconShop, IconTruck } from "../../components/shared/icons";
 import { useToast } from "../../hooks/useToast";
 import { getApiError } from "../../auth";
 import { fetchPlatformStats } from "../../api";

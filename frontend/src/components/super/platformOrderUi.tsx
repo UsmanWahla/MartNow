@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import Money from "../Money";
+import Money from "../shared/Money";
 import { onlineOrderStatusLabel, type PlatformOrder } from "../../types";
 import { formatQuantity } from "../../productUnits";
 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import PasswordInput from "../../components/PasswordInput";
+import PasswordInput from "../../components/shared/PasswordInput";
 import ShopButton from "../../components/shop/ShopButton";
 import { saveCustomerPassword } from "../../api";
 import { getApiError } from "../../auth";

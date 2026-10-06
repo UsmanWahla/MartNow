@@ -1,6 +1,6 @@
 import { useCallback, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { ToastContext, type ToastKind } from "../hooks/useToast";
+import { ToastContext, type ToastKind } from "../../hooks/useToast";
 
 interface ToastItem {
   id: number;

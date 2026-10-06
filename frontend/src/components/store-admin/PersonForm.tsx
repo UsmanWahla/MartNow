@@ -1,4 +1,4 @@
-import Field from "./Field";
+import Field from "../shared/Field";
 
 interface PersonFormProps {
   name: string;

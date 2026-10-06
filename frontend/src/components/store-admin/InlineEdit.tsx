@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { IconPencil } from "./icons";
+import { IconPencil } from "../shared/icons";
 
 interface InlineEditProps {
   value: string;

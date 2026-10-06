@@ -1,4 +1,4 @@
-import { formatMoney } from "../types";
+import { formatMoney } from "../../types";
 
 interface MoneyProps {
   value: number | string;

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { IconShop } from "../icons";
+import { IconShop } from "../shared/icons";
 
 interface ShopAuthPanelProps {
   shopName: string;

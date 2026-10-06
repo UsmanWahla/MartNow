@@ -1,11 +1,11 @@
 import { useEffect, useState, type ReactNode } from "react";
-import Modal from "./Modal";
-import Money from "./Money";
-import { getApiError } from "../auth";
-import { fetchProductLedger } from "../api";
-import type { Product, ProductLedger, ProductLedgerEntry } from "../types";
-import { variantLabel } from "../variantStock";
-import { formatQuantity, unitLabel } from "../productUnits";
+import Modal from "../shared/Modal";
+import Money from "../shared/Money";
+import { getApiError } from "../../auth";
+import { fetchProductLedger } from "../../api";
+import type { Product, ProductLedger, ProductLedgerEntry } from "../../types";
+import { variantLabel } from "../../variantStock";
+import { formatQuantity, unitLabel } from "../../productUnits";
 
 const TYPE_LABELS: Record<string, string> = {
   opening: "Opening stock",

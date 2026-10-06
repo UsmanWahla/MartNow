@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { IconDots } from "./icons";
-import { getUser } from "../auth";
-import { canManageCatalog, canOpenSettings, getRole } from "../roles";
+import { IconDots } from "../shared/icons";
+import { getUser } from "../../auth";
+import { canManageCatalog, canOpenSettings, getRole } from "../../roles";
 
 function UserMenu() {
   const navigate = useNavigate();

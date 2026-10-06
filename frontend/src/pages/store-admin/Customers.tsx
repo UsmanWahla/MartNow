@@ -1,34 +1,34 @@
 import { useState } from "react";
-import PagePanel from "../components/PagePanel";
-import AddButton from "../components/AddButton";
-import PersonForm from "../components/PersonForm";
-import Field from "../components/Field";
-import TableToolbar from "../components/TableToolbar";
-import Modal from "../components/Modal";
-import ModalActions from "../components/ModalActions";
-import ConfirmModal from "../components/ConfirmModal";
-import DataTable, { type DataTableColumn } from "../components/DataTable";
-import RowMenu from "../components/RowMenu";
-import Money from "../components/Money";
-import { IconPay } from "../components/icons";
-import { useToast } from "../hooks/useToast";
-import useBusy from "../hooks/useBusy";
-import { useServerList } from "../hooks/useServerList";
-import { useFieldErrors } from "../hooks/useFieldErrors";
-import { getApiError, getUser } from "../auth";
-import { canManagePeople, getRole } from "../roles";
+import PagePanel from "../../components/shared/PagePanel";
+import AddButton from "../../components/shared/AddButton";
+import PersonForm from "../../components/store-admin/PersonForm";
+import Field from "../../components/shared/Field";
+import TableToolbar from "../../components/shared/TableToolbar";
+import Modal from "../../components/shared/Modal";
+import ModalActions from "../../components/shared/ModalActions";
+import ConfirmModal from "../../components/shared/ConfirmModal";
+import DataTable, { type DataTableColumn } from "../../components/shared/DataTable";
+import RowMenu from "../../components/shared/RowMenu";
+import Money from "../../components/shared/Money";
+import { IconPay } from "../../components/shared/icons";
+import { useToast } from "../../hooks/useToast";
+import useBusy from "../../hooks/useBusy";
+import { useServerList } from "../../hooks/useServerList";
+import { useFieldErrors } from "../../hooks/useFieldErrors";
+import { getApiError, getUser } from "../../auth";
+import { canManagePeople, getRole } from "../../roles";
 import {
   createCustomer,
   fetchCustomers,
   payCustomer,
   removeCustomer,
   saveCustomer,
-} from "../api";
-import { upsertById, type Customer } from "../types";
+} from "../../api";
+import { upsertById, type Customer } from "../../types";
 import {
   collectFieldErrors,
   requiredMessage,
-} from "../utils/formValidate";
+} from "../../utils/formValidate";
 
 const emptyForm = { name: "", phone: "" };
 

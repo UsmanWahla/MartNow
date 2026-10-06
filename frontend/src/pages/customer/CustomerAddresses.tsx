@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import ConfirmModal from "../../components/ConfirmModal";
-import Field from "../../components/Field";
-import Modal from "../../components/Modal";
+import ConfirmModal from "../../components/shared/ConfirmModal";
+import Field from "../../components/shared/Field";
+import Modal from "../../components/shared/Modal";
 import ShopButton from "../../components/shop/ShopButton";
-import StoreLocationPicker from "../../components/StoreLocationPicker";
-import { IconMapPin, IconPencil, IconPlus, IconTrash } from "../../components/icons";
+import StoreLocationPicker from "../../components/shared/StoreLocationPicker";
+import { IconMapPin, IconPencil, IconPlus, IconTrash } from "../../components/shared/icons";
 import {
   createCustomerAddress,
   fetchCustomerAddresses,

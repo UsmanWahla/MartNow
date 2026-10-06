@@ -1,4 +1,4 @@
-import PagePanel from "../PagePanel";
+import PagePanel from "../shared/PagePanel";
 import type { PlatformStore } from "../../types";
 
 function DetailItem({ label, value }: { label: string; value?: string | number | null }) {

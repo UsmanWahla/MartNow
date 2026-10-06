@@ -1,26 +1,26 @@
 import { useEffect, useState, type ReactNode } from "react";
-import Avatar from "../components/Avatar";
-import PasswordInput from "../components/PasswordInput";
-import Field from "../components/Field";
-import Select from "../components/Select";
-import SaveButton from "../components/SaveButton";
-import AddButton from "../components/AddButton";
-import Modal from "../components/Modal";
-import ModalActions from "../components/ModalActions";
-import ConfirmModal from "../components/ConfirmModal";
-import DataTable, { type DataTableColumn } from "../components/DataTable";
-import RowMenu from "../components/RowMenu";
-import StoreLocationPicker from "../components/StoreLocationPicker";
+import Avatar from "../../components/shared/Avatar";
+import PasswordInput from "../../components/shared/PasswordInput";
+import Field from "../../components/shared/Field";
+import Select from "../../components/shared/Select";
+import SaveButton from "../../components/store-admin/SaveButton";
+import AddButton from "../../components/shared/AddButton";
+import Modal from "../../components/shared/Modal";
+import ModalActions from "../../components/shared/ModalActions";
+import ConfirmModal from "../../components/shared/ConfirmModal";
+import DataTable, { type DataTableColumn } from "../../components/shared/DataTable";
+import RowMenu from "../../components/shared/RowMenu";
+import StoreLocationPicker from "../../components/shared/StoreLocationPicker";
 import {
   IconSettings,
   IconShop,
   IconUdhaar,
   IconUsers,
-} from "../components/icons";
-import { useToast } from "../hooks/useToast";
-import useBusy from "../hooks/useBusy";
-import { useFieldErrors } from "../hooks/useFieldErrors";
-import { getApiError, getUser, saveUser } from "../auth";
+} from "../../components/shared/icons";
+import { useToast } from "../../hooks/useToast";
+import useBusy from "../../hooks/useBusy";
+import { useFieldErrors } from "../../hooks/useFieldErrors";
+import { getApiError, getUser, saveUser } from "../../auth";
 import {
   createStaff,
   fetchSettings,
@@ -33,16 +33,16 @@ import {
   saveStoreProfileSettings,
   saveSettings,
   productImageUrl,
-} from "../api";
-import { canManageStaff, getRole } from "../roles";
-import type { StaffMember, StoreType } from "../types";
+} from "../../api";
+import { canManageStaff, getRole } from "../../roles";
+import type { StaffMember, StoreType } from "../../types";
 import {
   collectFieldErrors,
   emailMessage,
   passwordStrengthMessage,
   requiredMessage,
   usernameMessage,
-} from "../utils/formValidate";
+} from "../../utils/formValidate";
 
 const emptyStaff = {
   name: "",

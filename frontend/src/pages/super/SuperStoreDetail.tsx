@@ -10,14 +10,14 @@ import StoreCommissionTab from "../../components/super/StoreCommissionTab";
 import StoreOrdersTab from "../../components/super/StoreOrdersTab";
 import StoreOverviewTab from "../../components/super/StoreOverviewTab";
 import StoreProductsTab from "../../components/super/StoreProductsTab";
-import StatCard from "../../components/StatCard";
+import StatCard from "../../components/shared/StatCard";
 import {
   IconBox,
   IconChevronLeft,
   IconLedger,
   IconSales,
   IconShop,
-} from "../../components/icons";
+} from "../../components/shared/icons";
 import { useToast } from "../../hooks/useToast";
 import {
   formatCardMoney,

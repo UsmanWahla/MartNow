@@ -1,11 +1,11 @@
 import { Link, useNavigate } from "react-router-dom";
-import { saveSession, getApiError } from "../auth";
-import { loginAccount } from "../api";
-import AuthCard from "../components/AuthCard";
-import AuthLoginFields from "../components/AuthLoginFields";
-import { useToast } from "../hooks/useToast";
-import { useFieldErrors } from "../hooks/useFieldErrors";
-import { collectFieldErrors, requiredMessage, usernameMessage } from "../utils/formValidate";
+import { saveSession, getApiError } from "../../auth";
+import { loginAccount } from "../../api";
+import AuthCard from "../../components/shared/AuthCard";
+import AuthLoginFields from "../../components/shared/AuthLoginFields";
+import { useToast } from "../../hooks/useToast";
+import { useFieldErrors } from "../../hooks/useFieldErrors";
+import { collectFieldErrors, requiredMessage, usernameMessage } from "../../utils/formValidate";
 import { useState } from "react";
 
 function Login() {

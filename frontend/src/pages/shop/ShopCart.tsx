@@ -1,9 +1,9 @@
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
-import Money from "../../components/Money";
+import Money from "../../components/shared/Money";
 import ShopButton from "../../components/shop/ShopButton";
 import ShopQtyStepper from "../../components/shop/ShopQtyStepper";
-import { IconChevronLeft, IconTrash } from "../../components/icons";
+import { IconChevronLeft, IconTrash } from "../../components/shared/icons";
 import {
   fetchShopCart,
   productImageUrl,

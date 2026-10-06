@@ -1,6 +1,6 @@
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { IconShop, IconUser } from "../icons";
+import { IconShop, IconUser } from "../shared/icons";
 import { clearAuth, getUser, isShopperUser } from "../../auth";
 import { logoutAccount } from "../../api";
 import ShopButton from "../shop/ShopButton";

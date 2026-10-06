@@ -1,4 +1,4 @@
-import type { DataTableColumn } from "../DataTable";
+import type { DataTableColumn } from "../shared/DataTable";
 import {
   onlineOrderStatusLabel,
   orderStatusTone,

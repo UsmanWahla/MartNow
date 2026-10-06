@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { IconDashboard, IconLedger, IconLogout, IconShop, IconMenu, IconTruck, IconBox } from "../icons";
-import ConfirmModal from "../ConfirmModal";
+import { IconDashboard, IconLedger, IconLogout, IconShop, IconMenu, IconTruck, IconBox } from "../shared/icons";
+import ConfirmModal from "../shared/ConfirmModal";
 import { clearAuth, getToken, getUser, isSuperAdmin } from "../../auth";
 import { logoutAccount } from "../../api";
 import useBusy from "../../hooks/useBusy";

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { IconClose, IconSearch } from "../icons";
+import { IconClose, IconSearch } from "../shared/icons";
 
 function ShopSearch({ slug, basePath }: { slug?: string; basePath?: string }) {
   const [params] = useSearchParams();

@@ -1,5 +1,5 @@
-import { API_URL, getUserInitials } from "../auth";
-import type { User } from "../auth";
+import { API_URL, getUserInitials } from "../../auth";
+import type { User } from "../../auth";
 
 interface AvatarProps {
   user: User | null;

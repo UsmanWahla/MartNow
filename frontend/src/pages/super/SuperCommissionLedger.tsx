@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import AddButton from "../../components/AddButton";
-import DataTable, { type DataTableColumn } from "../../components/DataTable";
-import Field from "../../components/Field";
-import Modal from "../../components/Modal";
-import ModalActions from "../../components/ModalActions";
-import Money from "../../components/Money";
-import PagePanel from "../../components/PagePanel";
-import Select from "../../components/Select";
-import StatCard from "../../components/StatCard";
-import TableToolbar from "../../components/TableToolbar";
-import { IconLedger, IconPay, IconProfit } from "../../components/icons";
+import AddButton from "../../components/shared/AddButton";
+import DataTable, { type DataTableColumn } from "../../components/shared/DataTable";
+import Field from "../../components/shared/Field";
+import Modal from "../../components/shared/Modal";
+import ModalActions from "../../components/shared/ModalActions";
+import Money from "../../components/shared/Money";
+import PagePanel from "../../components/shared/PagePanel";
+import Select from "../../components/shared/Select";
+import StatCard from "../../components/shared/StatCard";
+import TableToolbar from "../../components/shared/TableToolbar";
+import { IconLedger, IconPay, IconProfit } from "../../components/shared/icons";
 import { getApiError } from "../../auth";
 import {
   fetchPlatformCommissionLedger,

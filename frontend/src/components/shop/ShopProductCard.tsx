@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useRef, useState } from "react";
-import Money from "../Money";
+import Money from "../shared/Money";
 import ShopGalleryDots from "./ShopGalleryDots";
 import { productImageUrl } from "../../api";
 import type { Product } from "../../types";

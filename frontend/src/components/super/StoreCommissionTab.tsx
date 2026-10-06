@@ -14,16 +14,16 @@ import {
   type PlatformCommissionLedgerSummary,
   type PlatformStore,
 } from "../../types";
-import AddButton from "../AddButton";
-import DataTable, { type DataTableColumn } from "../DataTable";
-import Field from "../Field";
-import { IconLedger, IconPay, IconProfit } from "../icons";
-import Modal from "../Modal";
-import ModalActions from "../ModalActions";
-import Money from "../Money";
-import PagePanel from "../PagePanel";
-import StatCard from "../StatCard";
-import TableToolbar from "../TableToolbar";
+import AddButton from "../shared/AddButton";
+import DataTable, { type DataTableColumn } from "../shared/DataTable";
+import Field from "../shared/Field";
+import { IconLedger, IconPay, IconProfit } from "../shared/icons";
+import Modal from "../shared/Modal";
+import ModalActions from "../shared/ModalActions";
+import Money from "../shared/Money";
+import PagePanel from "../shared/PagePanel";
+import StatCard from "../shared/StatCard";
+import TableToolbar from "../shared/TableToolbar";
 import { formatPlatformOrderTime } from "./platformOrderColumns";
 
 function entryLabel(entryType: PlatformCommissionLedgerEntry["entry_type"]) {

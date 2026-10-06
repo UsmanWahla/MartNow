@@ -1,23 +1,23 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { IconBox, IconProfit, IconSales, IconStock, IconUdhaar } from "../components/icons";
-import BarChart from "../components/BarChart";
-import PieChart from "../components/PieChart";
-import StatCard from "../components/StatCard";
-import PeriodToggle from "../components/PeriodToggle";
-import { useToast } from "../hooks/useToast";
-import { getApiError, getUser } from "../auth";
-import { fetchDashboard, fetchProducts, fetchSales } from "../api";
-import { canSeeProfit, getRole } from "../roles";
-import Money from "../components/Money";
-import { formatQuantity } from "../productUnits";
+import { IconBox, IconProfit, IconSales, IconStock, IconUdhaar } from "../../components/shared/icons";
+import BarChart from "../../components/shared/BarChart";
+import PieChart from "../../components/shared/PieChart";
+import StatCard from "../../components/shared/StatCard";
+import PeriodToggle from "../../components/shared/PeriodToggle";
+import { useToast } from "../../hooks/useToast";
+import { getApiError, getUser } from "../../auth";
+import { fetchDashboard, fetchProducts, fetchSales } from "../../api";
+import { canSeeProfit, getRole } from "../../roles";
+import Money from "../../components/shared/Money";
+import { formatQuantity } from "../../productUnits";
 import {
   formatCardMoney,
   type DashboardPeriod,
   type DashboardStats,
   type Product,
   type Sale,
-} from "../types";
+} from "../../types";
 
 function inPeriod(dateValue: string, period: DashboardPeriod) {
   const date = new Date(dateValue);

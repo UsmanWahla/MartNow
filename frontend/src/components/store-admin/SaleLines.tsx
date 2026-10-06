@@ -1,11 +1,11 @@
-import Field from "./Field";
+import Field from "../shared/Field";
 import ProductSelect from "./ProductSelect";
 import VariantPickers from "./VariantPickers";
-import Money from "./Money";
-import { IconClose } from "./icons";
-import type { Product } from "../types";
-import { findVariantStock, hasVariantOptions } from "../variantStock";
-import { productStep, saleStock } from "../productUnits";
+import Money from "../shared/Money";
+import { IconClose } from "../shared/icons";
+import type { Product } from "../../types";
+import { findVariantStock, hasVariantOptions } from "../../variantStock";
+import { productStep, saleStock } from "../../productUnits";
 
 export interface SaleLine {
   productId: string;

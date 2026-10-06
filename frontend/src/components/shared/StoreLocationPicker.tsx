@@ -8,8 +8,8 @@ import {
 } from "react-leaflet";
 import { divIcon, type Marker as LeafletMarker } from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { reverseStoreLocation, searchStoreLocations, type StoreLocationResult } from "../api";
-import { getApiError } from "../auth";
+import { reverseStoreLocation, searchStoreLocations, type StoreLocationResult } from "../../api";
+import { getApiError } from "../../auth";
 
 export interface StoreLocationValue {
   address: string;

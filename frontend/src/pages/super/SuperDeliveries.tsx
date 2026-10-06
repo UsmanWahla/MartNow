@@ -1,11 +1,11 @@
 import { useCallback, useState } from "react";
-import PagePanel from "../../components/PagePanel";
-import TableToolbar from "../../components/TableToolbar";
-import DatePicker from "../../components/DatePicker";
-import Modal from "../../components/Modal";
-import DataTable, { type DataTableColumn } from "../../components/DataTable";
-import RowMenu from "../../components/RowMenu";
-import Money from "../../components/Money";
+import PagePanel from "../../components/shared/PagePanel";
+import TableToolbar from "../../components/shared/TableToolbar";
+import DatePicker from "../../components/shared/DatePicker";
+import Modal from "../../components/shared/Modal";
+import DataTable, { type DataTableColumn } from "../../components/shared/DataTable";
+import RowMenu from "../../components/shared/RowMenu";
+import Money from "../../components/shared/Money";
 import { useToast } from "../../hooks/useToast";
 import useBusy from "../../hooks/useBusy";
 import { useServerList } from "../../hooks/useServerList";

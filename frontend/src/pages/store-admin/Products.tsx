@@ -1,24 +1,24 @@
 import { useEffect, useState } from "react";
-import InlineEdit from "../components/InlineEdit";
-import Modal from "../components/Modal";
-import ConfirmModal from "../components/ConfirmModal";
-import RowMenu from "../components/RowMenu";
-import PagePanel from "../components/PagePanel";
-import AddButton from "../components/AddButton";
-import Field from "../components/Field";
-import TableToolbar from "../components/TableToolbar";
-import ModalActions from "../components/ModalActions";
-import ProductLedgerModal from "../components/ProductLedgerModal";
-import LowStockBadge from "../components/LowStockBadge";
-import DataTable, { type DataTableColumn } from "../components/DataTable";
-import Money from "../components/Money";
-import { IconLedger } from "../components/icons";
-import { useToast } from "../hooks/useToast";
-import useBusy from "../hooks/useBusy";
-import useOpenAddFromQuery from "../hooks/useOpenAddFromQuery";
-import { useServerList } from "../hooks/useServerList";
-import { useFieldErrors } from "../hooks/useFieldErrors";
-import { getApiError } from "../auth";
+import InlineEdit from "../../components/store-admin/InlineEdit";
+import Modal from "../../components/shared/Modal";
+import ConfirmModal from "../../components/shared/ConfirmModal";
+import RowMenu from "../../components/shared/RowMenu";
+import PagePanel from "../../components/shared/PagePanel";
+import AddButton from "../../components/shared/AddButton";
+import Field from "../../components/shared/Field";
+import TableToolbar from "../../components/shared/TableToolbar";
+import ModalActions from "../../components/shared/ModalActions";
+import ProductLedgerModal from "../../components/store-admin/ProductLedgerModal";
+import LowStockBadge from "../../components/shared/LowStockBadge";
+import DataTable, { type DataTableColumn } from "../../components/shared/DataTable";
+import Money from "../../components/shared/Money";
+import { IconLedger } from "../../components/shared/icons";
+import { useToast } from "../../hooks/useToast";
+import useBusy from "../../hooks/useBusy";
+import useOpenAddFromQuery from "../../hooks/useOpenAddFromQuery";
+import { useServerList } from "../../hooks/useServerList";
+import { useFieldErrors } from "../../hooks/useFieldErrors";
+import { getApiError } from "../../auth";
 import {
   createProduct,
   fetchProducts,
@@ -26,11 +26,11 @@ import {
   productImageUrl,
   removeProduct,
   saveProduct,
-} from "../api";
-import { upsertById, type Product, type ProductImage } from "../types";
-import { variantCombos, variantKey, variantLabel, weakestStock } from "../variantStock";
-import { collectFieldErrors, requiredMessage } from "../utils/formValidate";
-import { formatNumberInput } from "../numberFormat";
+} from "../../api";
+import { upsertById, type Product, type ProductImage } from "../../types";
+import { variantCombos, variantKey, variantLabel, weakestStock } from "../../variantStock";
+import { collectFieldErrors, requiredMessage } from "../../utils/formValidate";
+import { formatNumberInput } from "../../numberFormat";
 import {
   BASE_UNITS,
   formatQuantity,
@@ -39,7 +39,7 @@ import {
   type InventoryType,
   saleStock,
   unitLabel,
-} from "../productUnits";
+} from "../../productUnits";
 
 const emptyForm = {
   name: "",

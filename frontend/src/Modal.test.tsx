@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
-import Modal from "./components/Modal";
+import Modal from "./components/shared/Modal";
 
 describe("Modal", () => {
   it("closes when Escape is pressed", () => {

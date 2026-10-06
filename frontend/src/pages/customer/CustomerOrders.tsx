@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import Money from "../../components/Money";
-import Pagination from "../../components/Pagination";
-import { IconShop, IconTruck } from "../../components/icons";
+import Money from "../../components/shared/Money";
+import Pagination from "../../components/shared/Pagination";
+import { IconShop, IconTruck } from "../../components/shared/icons";
 import {
   fetchCustomerOrders,
   productImageUrl,

@@ -1,6 +1,6 @@
-import Select from "./Select";
-import { formatMoney, type Product } from "../types";
-import { formatQuantity, saleStock, unitLabel } from "../productUnits";
+import Select from "../shared/Select";
+import { formatMoney, type Product } from "../../types";
+import { formatQuantity, saleStock, unitLabel } from "../../productUnits";
 
 interface ProductSelectProps {
   products: Product[];

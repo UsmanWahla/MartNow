@@ -5,11 +5,11 @@ import { useServerList } from "../../hooks/useServerList";
 import { useToast } from "../../hooks/useToast";
 import type { Product } from "../../types";
 import { weakestStock } from "../../variantStock";
-import DataTable, { type DataTableColumn } from "../DataTable";
-import LowStockBadge from "../LowStockBadge";
-import Money from "../Money";
-import PagePanel from "../PagePanel";
-import TableToolbar from "../TableToolbar";
+import DataTable, { type DataTableColumn } from "../shared/DataTable";
+import LowStockBadge from "../shared/LowStockBadge";
+import Money from "../shared/Money";
+import PagePanel from "../shared/PagePanel";
+import TableToolbar from "../shared/TableToolbar";
 import { formatQuantity, saleStock, unitLabel } from "../../productUnits";
 
 function StoreProductsTab({ storeId }: { storeId: number }) {

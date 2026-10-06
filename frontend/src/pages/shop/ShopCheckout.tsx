@@ -1,10 +1,10 @@
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
-import Field from "../../components/Field";
-import Money from "../../components/Money";
-import StoreLocationPicker from "../../components/StoreLocationPicker";
+import Field from "../../components/shared/Field";
+import Money from "../../components/shared/Money";
+import StoreLocationPicker from "../../components/shared/StoreLocationPicker";
 import ShopButton from "../../components/shop/ShopButton";
-import { IconChevronLeft, IconMapPin, IconShop, IconTruck } from "../../components/icons";
+import { IconChevronLeft, IconMapPin, IconShop, IconTruck } from "../../components/shared/icons";
 import {
   fetchCheckoutProfile,
   fetchShopCart,

@@ -1,14 +1,14 @@
 import { useState } from "react";
-import PagePanel from "../../components/PagePanel";
-import AddButton from "../../components/AddButton";
-import ConfirmModal from "../../components/ConfirmModal";
-import DataTable, { type DataTableColumn } from "../../components/DataTable";
-import Field from "../../components/Field";
-import Modal from "../../components/Modal";
-import ModalActions from "../../components/ModalActions";
-import RowMenu from "../../components/RowMenu";
-import Select from "../../components/Select";
-import TableToolbar from "../../components/TableToolbar";
+import PagePanel from "../../components/shared/PagePanel";
+import AddButton from "../../components/shared/AddButton";
+import ConfirmModal from "../../components/shared/ConfirmModal";
+import DataTable, { type DataTableColumn } from "../../components/shared/DataTable";
+import Field from "../../components/shared/Field";
+import Modal from "../../components/shared/Modal";
+import ModalActions from "../../components/shared/ModalActions";
+import RowMenu from "../../components/shared/RowMenu";
+import Select from "../../components/shared/Select";
+import TableToolbar from "../../components/shared/TableToolbar";
 import { getApiError } from "../../auth";
 import {
   createStoreType,

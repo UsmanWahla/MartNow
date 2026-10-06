@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import Field from "../../components/Field";
+import Field from "../../components/shared/Field";
 import ShopButton from "../../components/shop/ShopButton";
 import { fetchCustomerProfile, saveCustomerProfile } from "../../api";
 import { getApiError, saveUser } from "../../auth";

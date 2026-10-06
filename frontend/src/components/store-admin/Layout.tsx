@@ -1,20 +1,20 @@
 import { useEffect, useState } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import Sidebar from "./Sidebar";
-import Avatar from "./Avatar";
+import Avatar from "../shared/Avatar";
 import UserMenu from "./UserMenu";
-import ConfirmModal from "./ConfirmModal";
-import { IconMenu } from "./icons";
-import { clearAuth, getToken, getUser, isCustomerSession, isSuperAdmin } from "../auth";
-import { logoutAccount } from "../api";
-import useBusy from "../hooks/useBusy";
+import ConfirmModal from "../shared/ConfirmModal";
+import { IconMenu } from "../shared/icons";
+import { clearAuth, getToken, getUser, isCustomerSession, isSuperAdmin } from "../../auth";
+import { logoutAccount } from "../../api";
+import useBusy from "../../hooks/useBusy";
 import {
   canManagePeople,
   canManageStock,
   canOpenSettings,
   canViewCommission,
   getRole,
-} from "../roles";
+} from "../../roles";
 
 const pageMeta: Record<string, { title: string; subtitle: string }> = {
   "/dashboard": { title: "Dashboard", subtitle: "Shop overview" },

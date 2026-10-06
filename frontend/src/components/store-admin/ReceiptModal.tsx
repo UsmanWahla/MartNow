@@ -1,6 +1,6 @@
-import Money from "./Money";
-import { type Sale } from "../types";
-import { formatQuantity } from "../productUnits";
+import Money from "../shared/Money";
+import { type Sale } from "../../types";
+import { formatQuantity } from "../../productUnits";
 
 interface ReceiptModalProps {
   sale: Sale;

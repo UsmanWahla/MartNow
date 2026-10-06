@@ -10,6 +10,7 @@ const authService = require("../services/authService");
 const productService = require("../services/productService");
 const saleService = require("../services/saleService");
 const dashboardService = require("../services/dashboardService");
+const reportService = require("../services/reportService");
 const stockService = require("../services/stockService");
 const staffService = require("../services/staffService");
 const { requireRole } = require("../middleware/auth");
@@ -107,6 +108,13 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
         await assert.rejects(
             () => authService.login({ email, password: "Wrongpass1" }),
             (error) => error.status === 401
+        );
+    });
+
+    it("rejects an invalid report date range", () => {
+        assert.throws(
+            () => reportService.normalizeRange({ dateFrom: "2026-02-02", dateTo: "2026-02-01" }),
+            (error) => error.status === 400
         );
     });
 
@@ -254,6 +262,19 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
         assert.equal(afterExpense.profit, 15);
         assert.equal(afterExpense.expenses, 3);
         assert.equal(afterExpense.netProfit, 12);
+
+        const report = await reportService.getStoreReport(userId);
+        assert.equal(report.summary.orders, 2);
+        assert.equal(report.summary.billed, 35);
+        assert.equal(report.summary.collected, 30);
+        assert.equal(report.summary.cost, 20);
+        assert.equal(report.summary.gross_profit, 15);
+        assert.equal(report.summary.expenses, 3);
+        assert.equal(report.summary.commission, 0);
+        assert.equal(report.summary.net_profit, 12);
+        assert.equal(report.products.find((row) => row.product === "Test Mouse").quantity_sold, 3);
+        assert.equal(report.inventory.find((row) => row.product === "Test Pad").stock, 3);
+        assert.equal(report.customers.find((row) => row.customer === "Ali").period_due, 5);
 
         await customerService.payCustomer(userId, customer.customer.id, 5);
         const afterPay = await dashboardService.getStats(userId, "all");
@@ -1087,6 +1108,15 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
         const settledSummary = await commissionLedgerService.getStoreCommissionSummary(tenantId);
         assert.equal(settledSummary.received, 3);
         assert.equal(settledSummary.outstanding, expectedCommission - 3);
+
+        const platformReport = await reportService.getPlatformReport();
+        const reportedStore = platformReport.stores.find((store) => store.store_id === created.store.id);
+        assert.ok(reportedStore);
+        assert.equal(reportedStore.online_orders, 1);
+        assert.equal(reportedStore.delivered, 1);
+        assert.equal(reportedStore.commission, expectedCommission);
+        assert.equal(reportedStore.commission_outstanding, expectedCommission - 3);
+        assert.ok(platformReport.store_types.some((row) => row.store_type === pharmacyType.name));
 
         await deleteTenantData(secondTenantId, { storeId: secondStore.store.id });
         await deleteTenantData(tenantId, { storeId: created.store.id });

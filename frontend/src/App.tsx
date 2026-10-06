@@ -14,6 +14,7 @@ const Customers = lazy(() => import("./pages/store-admin/Customers"));
 const Suppliers = lazy(() => import("./pages/store-admin/Suppliers"));
 const Expenses = lazy(() => import("./pages/store-admin/Expenses"));
 const Commission = lazy(() => import("./pages/store-admin/Commission"));
+const Reports = lazy(() => import("./pages/store-admin/Reports"));
 const Settings = lazy(() => import("./pages/store-admin/Settings"));
 const Login = lazy(() => import("./pages/store-admin/Login"));
 const ShopHome = lazy(() => import("./pages/shop/ShopHome"));
@@ -31,6 +32,7 @@ const SuperStoreDetail = lazy(() => import("./pages/super/SuperStoreDetail"));
 const SuperOrders = lazy(() => import("./pages/super/SuperOrders"));
 const SuperDeliveries = lazy(() => import("./pages/super/SuperDeliveries"));
 const SuperCommissionLedger = lazy(() => import("./pages/super/SuperCommissionLedger"));
+const SuperReports = lazy(() => import("./pages/super/SuperReports"));
 const MarketHome = lazy(() => import("./pages/market/MarketHome"));
 const CustomerLogin = lazy(() => import("./pages/market/CustomerLogin"));
 const CustomerRegister = lazy(() => import("./pages/market/CustomerRegister"));
@@ -90,6 +92,7 @@ function App() {
 
         <Route path="/super" element={<SuperLayout />}>
           <Route index element={<SuperDashboard />} />
+          <Route path="reports" element={<SuperReports />} />
           <Route path="orders" element={<SuperOrders />} />
           <Route path="deliveries" element={<SuperDeliveries />} />
           <Route path="commission-ledger" element={<SuperCommissionLedger />} />
@@ -108,6 +111,7 @@ function App() {
           <Route path="/suppliers" element={<Suppliers />} />
           <Route path="/expenses" element={<Expenses />} />
           <Route path="/commission" element={<Commission />} />
+          <Route path="/reports" element={<Reports />} />
           <Route path="/settings" element={<Settings />} />
         </Route>
         </Routes>

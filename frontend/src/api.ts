@@ -32,6 +32,8 @@ import {
   type PlatformCommissionLedgerSummary,
   type StoreCommissionSummary,
   type PublicStore,
+  type StoreReport,
+  type PlatformReport,
 } from "./types";
 
 export interface ListQuery {
@@ -292,6 +294,17 @@ export async function fetchDashboard(period: DashboardPeriod = "month") {
   const response = await axios.get<DashboardStats>(`${API_URL}/api/dashboard`, {
     headers: authHeader(),
     params: { period },
+  });
+  return response.data;
+}
+
+export async function fetchStoreReport(options?: Pick<ListQuery, "date_from" | "date_to">) {
+  const response = await axios.get<StoreReport>(`${API_URL}/api/reports`, {
+    headers: authHeader(),
+    params: {
+      ...(options?.date_from ? { date_from: options.date_from } : {}),
+      ...(options?.date_to ? { date_to: options.date_to } : {}),
+    },
   });
   return response.data;
 }
@@ -823,6 +836,17 @@ export async function fetchPlatformStats(period: DashboardPeriod = "month") {
   const response = await axios.get<PlatformStats>(`${API_URL}/api/super/dashboard`, {
     headers: authHeader(),
     params: { period },
+  });
+  return response.data;
+}
+
+export async function fetchPlatformReport(options?: Pick<ListQuery, "date_from" | "date_to">) {
+  const response = await axios.get<PlatformReport>(`${API_URL}/api/super/reports`, {
+    headers: authHeader(),
+    params: {
+      ...(options?.date_from ? { date_from: options.date_from } : {}),
+      ...(options?.date_to ? { date_to: options.date_to } : {}),
+    },
   });
   return response.data;
 }

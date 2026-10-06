@@ -5,6 +5,7 @@ import {
   IconLedger,
   IconLogout,
   IconProfit,
+  IconReport,
   IconSettings,
   IconStock,
   IconTruck,
@@ -15,6 +16,7 @@ import {
   canManagePeople,
   canManageStock,
   canOpenSettings,
+  canSeeProfit,
   canViewCommission,
   getRole,
 } from "../../roles";
@@ -55,6 +57,9 @@ function Sidebar({ onLogout, onNavigate }: SidebarProps) {
       : []),
     ...(canViewCommission(role)
       ? [{ to: "/commission", label: "Commission", icon: <IconLedger className="h-4 w-4" /> }]
+      : []),
+    ...(canSeeProfit(role)
+      ? [{ to: "/reports", label: "Reports", icon: <IconReport className="h-4 w-4" /> }]
       : []),
     ...(canOpenSettings(role)
       ? [{ to: "/settings", label: "Settings", icon: <IconSettings className="h-4 w-4" /> }]

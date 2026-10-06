@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { IconDashboard, IconLedger, IconLogout, IconShop, IconMenu, IconTruck, IconBox } from "../shared/icons";
+import { IconDashboard, IconLedger, IconLogout, IconShop, IconMenu, IconTruck, IconBox, IconReport } from "../shared/icons";
 import ConfirmModal from "../shared/ConfirmModal";
 import { clearAuth, getToken, getUser, isSuperAdmin } from "../../auth";
 import { logoutAccount } from "../../api";
@@ -54,6 +54,8 @@ function SuperLayout() {
 
   const title = /^\/super\/stores\/\d+/.test(location.pathname)
     ? "Store details"
+    : location.pathname.startsWith("/super/reports")
+      ? "Analytics"
     : location.pathname.startsWith("/super/store-types")
       ? "Store types"
     : location.pathname.startsWith("/super/stores")
@@ -83,6 +85,10 @@ function SuperLayout() {
         <NavLink to="/super" end className={linkClass} onClick={() => setMenuOpen(false)}>
           <IconDashboard className="h-4 w-4" />
           Dashboard
+        </NavLink>
+        <NavLink to="/super/reports" className={linkClass} onClick={() => setMenuOpen(false)}>
+          <IconReport className="h-4 w-4" />
+          Analytics
         </NavLink>
         <NavLink to="/super/orders" className={linkClass} onClick={() => setMenuOpen(false)}>
           <IconTruck className="h-4 w-4" />

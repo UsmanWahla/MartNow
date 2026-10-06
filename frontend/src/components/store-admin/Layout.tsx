@@ -12,6 +12,7 @@ import {
   canManagePeople,
   canManageStock,
   canOpenSettings,
+  canSeeProfit,
   canViewCommission,
   getRole,
 } from "../../roles";
@@ -25,6 +26,7 @@ const pageMeta: Record<string, { title: string; subtitle: string }> = {
   "/suppliers": { title: "Suppliers", subtitle: "Who you buy from" },
   "/expenses": { title: "Expenses", subtitle: "Shop costs" },
   "/commission": { title: "Commission", subtitle: "Rate, payments, and outstanding balance" },
+  "/reports": { title: "Reports", subtitle: "Sales, profit, inventory, and performance" },
   "/settings": { title: "Settings", subtitle: "Shop, staff, and account" },
 };
 
@@ -80,6 +82,10 @@ function Layout() {
   }
 
   if (location.pathname === "/commission" && !canViewCommission(role)) {
+    return <Navigate to="/orders" replace />;
+  }
+
+  if (location.pathname === "/reports" && !canSeeProfit(role)) {
     return <Navigate to="/orders" replace />;
   }
 

@@ -423,3 +423,11 @@ export function IconDownload({ className }: IconProps) {
     </svg>
   );
 }
+
+export function IconReport({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <path d="M5 20V10m7 10V4m7 16v-7M3 20.5h18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}

@@ -335,6 +335,192 @@ export interface StoreCommissionSummary extends PlatformCommissionLedgerSummary 
   commission_percent: number | string;
 }
 
+export interface ReportRange {
+  from: string;
+  to: string;
+}
+
+export interface ReportVariantStock {
+  color: string;
+  size: string;
+  stock: number;
+}
+
+export interface StoreReportSummary {
+  orders: number;
+  units_sold: number;
+  billed: number;
+  collected: number;
+  outstanding: number;
+  cost: number;
+  gross_profit: number;
+  expenses: number;
+  commission: number;
+  net_profit: number;
+  inventory_value: number;
+  low_stock: number;
+  out_of_stock: number;
+}
+
+export interface StoreReportTrend {
+  date: string;
+  orders: number;
+  sales: number;
+  cost: number;
+  profit: number;
+}
+
+export interface StoreProductReportRow {
+  product_id: number;
+  product: string;
+  sku: string;
+  category: string;
+  inventory_type: Product["inventory_type"];
+  base_unit: string;
+  sale_unit: string;
+  units_per_sale_unit: number;
+  stock: number;
+  quantity_sold: number;
+  revenue: number;
+  cost: number;
+  profit: number;
+  margin_percent: number;
+  last_sale_at: string | null;
+  variants: ReportVariantStock[];
+}
+
+export interface StoreInventoryReportRow {
+  product_id: number;
+  product: string;
+  sku: string;
+  category: string;
+  inventory_type: Product["inventory_type"];
+  base_unit: string;
+  sale_unit: string;
+  units_per_sale_unit: number;
+  stock: number;
+  sale_stock: number;
+  stock_value: number;
+  oldest_received_at: string | null;
+  damage_quantity: number;
+  adjustment_quantity: number;
+  status: "healthy" | "low" | "out";
+  variants: ReportVariantStock[];
+}
+
+export interface StoreCustomerReportRow {
+  customer_id: number;
+  customer: string;
+  phone: string;
+  email: string;
+  orders: number;
+  revenue: number;
+  paid: number;
+  period_due: number;
+  current_balance: number;
+  last_purchase_at: string | null;
+}
+
+export interface StoreReport {
+  range: ReportRange;
+  summary: StoreReportSummary;
+  sales_trend: StoreReportTrend[];
+  products: StoreProductReportRow[];
+  inventory: StoreInventoryReportRow[];
+  customers: StoreCustomerReportRow[];
+  commission: {
+    rate: number;
+    charged: number;
+    paid: number;
+    reversed: number;
+    recognized: number;
+    outstanding: number;
+  };
+  operations: {
+    pos_sales: number;
+    online_orders: number;
+    pending: number;
+    processing: number;
+    dispatched: number;
+    delivered: number;
+    cancelled: number;
+    store_delivery: number;
+    platform_delivery: number;
+  };
+}
+
+export interface PlatformReportStoreRow {
+  store_id: number;
+  store: string;
+  shop_slug: string;
+  store_type: string;
+  status: string;
+  created_at: string;
+  sales: number;
+  revenue: number;
+  online_orders: number;
+  delivered: number;
+  cancelled: number;
+  online_gmv: number;
+  delivery_fees: number;
+  commission: number;
+  commission_outstanding: number;
+  products: number;
+  out_of_stock: number;
+  stock: number;
+  last_sale_at: string | null;
+  health: "healthy" | "inactive" | "setup_required" | "out_of_stock" | "no_sales" | "inactive_sales";
+  health_label: string;
+}
+
+export interface PlatformReport {
+  range: ReportRange;
+  summary: {
+    total_stores: number;
+    active_stores: number;
+    new_stores: number;
+    customers: number;
+    sales: number;
+    store_sales: number;
+    online_orders: number;
+    online_gmv: number;
+    commission: number;
+    commission_received: number;
+    commission_outstanding: number;
+    delivery_fees: number;
+    platform_earnings: number;
+  };
+  marketplace_trend: {
+    date: string;
+    orders: number;
+    gmv: number;
+    commission: number;
+    delivery_fees: number;
+  }[];
+  stores: PlatformReportStoreRow[];
+  store_types: {
+    store_type: string;
+    stores: number;
+    active_stores: number;
+    sales: number;
+    revenue: number;
+    online_orders: number;
+    online_gmv: number;
+    commission: number;
+  }[];
+  delivery: {
+    online_orders: number;
+    pending: number;
+    processing: number;
+    dispatched: number;
+    delivered: number;
+    cancelled: number;
+    store_delivery: number;
+    platform_delivery: number;
+    delivery_fees: number;
+  };
+}
+
 export type PlatformOrderKind = "online" | "walkin";
 
 export interface PlatformOrder {

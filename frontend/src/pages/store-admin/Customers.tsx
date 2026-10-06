@@ -4,6 +4,7 @@ import AddButton from "../../components/shared/AddButton";
 import PersonForm from "../../components/store-admin/PersonForm";
 import Field from "../../components/shared/Field";
 import TableToolbar from "../../components/shared/TableToolbar";
+import ExportCsvButton from "../../components/shared/ExportCsvButton";
 import Modal from "../../components/shared/Modal";
 import ModalActions from "../../components/shared/ModalActions";
 import ConfirmModal from "../../components/shared/ConfirmModal";
@@ -29,6 +30,7 @@ import {
   collectFieldErrors,
   requiredMessage,
 } from "../../utils/formValidate";
+import { csvFilename, csvNumber, downloadCsv, fetchAllRows } from "../../utils/csvExport";
 
 const emptyForm = { name: "", phone: "" };
 
@@ -158,6 +160,19 @@ function Customers() {
     });
   }
 
+  async function exportCustomers() {
+    const rows = await fetchAllRows((page) =>
+      fetchCustomers({ q: search.trim(), page, limit: 50 })
+    );
+
+    downloadCsv(csvFilename("customers"), rows, [
+      { header: "Customer", value: (customer) => customer.name },
+      { header: "Phone", value: (customer) => customer.phone || "" },
+      { header: "Email", value: (customer) => customer.email || "" },
+      { header: "Outstanding balance", value: (customer) => csvNumber(customer.balance) },
+    ]);
+  }
+
   const columns: DataTableColumn<Customer>[] = [
     { key: "name", header: "Name", sortable: true, sortValue: (row) => row.name },
     { key: "phone", header: "Phone", render: (row) => row.phone || "—" },
@@ -213,7 +228,20 @@ function Customers() {
             }}
           />
           <div className="flex flex-wrap items-center gap-3">
-            <TableToolbar search={search} onSearch={setSearch} count={total} />
+            <TableToolbar
+              search={search}
+              onSearch={setSearch}
+              count={total}
+              actions={
+                canManage ? (
+                  <ExportCsvButton
+                    onExport={exportCustomers}
+                    onSuccess={() => showToast("Customers CSV downloaded", "success")}
+                    onError={(error) => showToast(getApiError(error, "Unable to export customers"))}
+                  />
+                ) : null
+              }
+            />
           </div>
         </div>
         <DataTable

@@ -5,6 +5,7 @@ import PagePanel from "../../components/shared/PagePanel";
 import AddButton from "../../components/shared/AddButton";
 import Field from "../../components/shared/Field";
 import TableToolbar from "../../components/shared/TableToolbar";
+import ExportCsvButton from "../../components/shared/ExportCsvButton";
 import ModalActions from "../../components/shared/ModalActions";
 import ProductSelect from "../../components/store-admin/ProductSelect";
 import DataTable, { type DataTableColumn } from "../../components/shared/DataTable";
@@ -29,6 +30,7 @@ import VariantPickers from "../../components/store-admin/VariantPickers";
 import { collectFieldErrors, requiredMessage } from "../../utils/formValidate";
 import { formatQuantity, formatUnitCost, unitLabel } from "../../productUnits";
 import { formatNumberInput } from "../../numberFormat";
+import { csvDateTime, csvFilename, csvNumber, downloadCsv, fetchAllRows } from "../../utils/csvExport";
 
 type StockMode = "in" | "damage" | "adjust";
 
@@ -211,6 +213,28 @@ function Stock() {
     });
   }
 
+  async function exportStock() {
+    const rows = await fetchAllRows((page) =>
+      fetchStock({ q: search.trim(), page, limit: 50 })
+    );
+
+    downloadCsv(csvFilename("stock-movements"), rows, [
+      { header: "Date", value: (movement) => csvDateTime(movement.received_at || movement.created_at) },
+      { header: "Product", value: (movement) => movement.product },
+      { header: "Type", value: (movement) => TYPE_LABELS[movement.type] || movement.type },
+      {
+        header: "Variant",
+        value: (movement) => [movement.color, movement.size].filter(Boolean).join(" / "),
+      },
+      { header: "Quantity", value: (movement) => csvNumber(movement.quantity) },
+      { header: "Base unit", value: (movement) => movement.base_unit || "piece" },
+      { header: "Purchase cost per base unit", value: (movement) => csvNumber(movement.unit_cost) },
+      { header: "Batch sale price", value: (movement) => csvNumber(movement.batch_sale_price) },
+      { header: "Supplier", value: (movement) => movement.supplier || "" },
+      { header: "Note", value: (movement) => movement.note || "" },
+    ]);
+  }
+
   const columns: DataTableColumn<StockMovement>[] = [
     {
       key: "product",
@@ -327,7 +351,18 @@ function Stock() {
             <AddButton label="Adjust" onClick={() => openAdd("adjust")} />
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <TableToolbar search={search} onSearch={setSearch} count={total} />
+            <TableToolbar
+              search={search}
+              onSearch={setSearch}
+              count={total}
+              actions={
+                <ExportCsvButton
+                  onExport={exportStock}
+                  onSuccess={() => showToast("Stock CSV downloaded", "success")}
+                  onError={(error) => showToast(getApiError(error, "Unable to export stock"))}
+                />
+              }
+            />
           </div>
         </div>
         <DataTable

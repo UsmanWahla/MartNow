@@ -7,6 +7,7 @@ import DatePicker from "../../components/shared/DatePicker";
 import AddButton from "../../components/shared/AddButton";
 import Field from "../../components/shared/Field";
 import TableToolbar from "../../components/shared/TableToolbar";
+import ExportCsvButton from "../../components/shared/ExportCsvButton";
 import ModalActions from "../../components/shared/ModalActions";
 import Select from "../../components/shared/Select";
 import SaleLines, { type SaleLine } from "../../components/store-admin/SaleLines";
@@ -50,6 +51,7 @@ import {
   onlineOrderDeliveryColumn,
   onlineOrderSourceColumn,
 } from "../../components/super/platformOrderColumns";
+import { csvDateTime, csvFilename, csvNumber, downloadCsv, fetchAllRows } from "../../utils/csvExport";
 
 const emptyLine: SaleLine = { productId: "", quantity: "1" };
 
@@ -376,6 +378,111 @@ function Orders() {
     return { label, tone: orderStatusTone(label) };
   }
 
+  function isWithinDateRange(createdAt: string) {
+    const date = String(createdAt).slice(0, 10);
+
+    return (
+      (!dateRange.from || date >= dateRange.from) &&
+      (!dateRange.to || date <= dateRange.to)
+    );
+  }
+
+  function onlineOrderMatchesSearch(order: AdminOrder, query: string) {
+    if (!query) {
+      return true;
+    }
+
+    return [order.customer, order.city, order.email]
+      .filter(Boolean)
+      .some((value) => String(value).toLocaleLowerCase().includes(query));
+  }
+
+  function orderItems(items: Sale["items"] | AdminOrder["items"]) {
+    return (items || [])
+      .map((item) => {
+        const variant = [item.color, item.size].filter(Boolean).join(" / ");
+        return `${item.product} x ${formatQuantity(item.quantity)} ${item.sale_unit || "piece"}${
+          variant ? ` (${variant})` : ""
+        }`;
+      })
+      .join("; ");
+  }
+
+  function exportSuffix() {
+    if (dateRange.from || dateRange.to) {
+      return `${dateRange.from || "start"}_to_${dateRange.to || "today"}`;
+    }
+
+    return "all-dates";
+  }
+
+  async function exportManualSales() {
+    const query = search.trim();
+    const [allSales, allOrders] = await Promise.all([
+      fetchAllRows((page) =>
+        fetchSales({
+          q: query,
+          page,
+          limit: 50,
+          date_from: dateRange.from || undefined,
+          date_to: dateRange.to || undefined,
+        })
+      ),
+      fetchAllRows((page) => fetchOrders({ page, limit: 50 })),
+    ]);
+    const onlineSaleIds = new Set(
+      allOrders.map((order) => order.sale_id).filter((saleId): saleId is number => Boolean(saleId))
+    );
+    const manualSales = allSales.filter((sale) => !onlineSaleIds.has(sale.id));
+
+    downloadCsv(csvFilename("manual-sales", exportSuffix()), manualSales, [
+      { header: "Sale ID", value: (sale) => sale.id },
+      { header: "Date", value: (sale) => csvDateTime(sale.created_at) },
+      { header: "Customer", value: (sale) => sale.customer || "Walk-in" },
+      { header: "Items", value: (sale) => orderItems(sale.items) },
+      { header: "Total quantity", value: (sale) => csvNumber(sale.quantity) },
+      { header: "Total amount", value: (sale) => csvNumber(sale.total_amount) },
+      { header: "Paid amount", value: (sale) => csvNumber(sale.paid_amount) },
+      { header: "Outstanding amount", value: (sale) => csvNumber(sale.due_amount) },
+      { header: "Actual FIFO cost", value: (sale) => csvNumber(sale.cost_amount) },
+      {
+        header: "Gross profit",
+        value: (sale) => {
+          const amount = csvNumber(sale.total_amount);
+          const cost = csvNumber(sale.cost_amount);
+          return typeof amount === "number" && typeof cost === "number" ? amount - cost : "";
+        },
+      },
+    ]);
+  }
+
+  async function exportOnlineOrders() {
+    const query = search.trim().toLocaleLowerCase();
+    const allOrders = await fetchAllRows((page) => fetchOrders({ page, limit: 50 }));
+    const filteredOrders = allOrders.filter(
+      (order) => isWithinDateRange(order.created_at) && onlineOrderMatchesSearch(order, query)
+    );
+
+    downloadCsv(csvFilename("online-orders", exportSuffix()), filteredOrders, [
+      { header: "Online order ID", value: (order) => order.id },
+      { header: "Sale ID", value: (order) => order.sale_id || "" },
+      { header: "Date", value: (order) => csvDateTime(order.created_at) },
+      { header: "Customer", value: (order) => order.customer || "" },
+      { header: "Email", value: (order) => order.email },
+      { header: "Phone", value: (order) => order.phone || "" },
+      { header: "Address", value: (order) => order.address },
+      { header: "City", value: (order) => order.city },
+      { header: "Items", value: (order) => orderItems(order.items) },
+      { header: "Delivery by", value: (order) => order.delivery_by || "store" },
+      { header: "Delivery status", value: (order) => order.delivery_status },
+      { header: "Payment status", value: (order) => order.payment_status },
+      { header: "Product total", value: (order) => csvNumber(order.total_amount) },
+      { header: "Delivery fee", value: (order) => csvNumber(order.delivery_fee) },
+      { header: "Paid amount", value: (order) => csvNumber(order.paid_amount) },
+      { header: "Outstanding amount", value: (order) => csvNumber(order.due_amount) },
+    ]);
+  }
+
   const columns: DataTableColumn<Sale>[] = [
     {
       key: "order_id",
@@ -594,7 +701,29 @@ function Orders() {
           <div className="flex flex-col items-end gap-2">
             <AddButton onClick={openAdd} />
             <div className="flex flex-wrap items-center gap-3">
-              <TableToolbar search={search} onSearch={setSearch} count={total} />
+              <TableToolbar
+                search={search}
+                onSearch={setSearch}
+                count={total}
+                actions={
+                  canEdit ? (
+                    <>
+                      <ExportCsvButton
+                        label="POS CSV"
+                        onExport={exportManualSales}
+                        onSuccess={() => showToast("POS sales CSV downloaded", "success")}
+                        onError={(error) => showToast(getApiError(error, "Unable to export POS sales"))}
+                      />
+                      <ExportCsvButton
+                        label="Online CSV"
+                        onExport={exportOnlineOrders}
+                        onSuccess={() => showToast("Online orders CSV downloaded", "success")}
+                        onError={(error) => showToast(getApiError(error, "Unable to export online orders"))}
+                      />
+                    </>
+                  ) : null
+                }
+              />
             </div>
           </div>
         </div>

@@ -7,6 +7,7 @@ import PagePanel from "../../components/shared/PagePanel";
 import AddButton from "../../components/shared/AddButton";
 import Field from "../../components/shared/Field";
 import TableToolbar from "../../components/shared/TableToolbar";
+import ExportCsvButton from "../../components/shared/ExportCsvButton";
 import ModalActions from "../../components/shared/ModalActions";
 import ProductLedgerModal from "../../components/store-admin/ProductLedgerModal";
 import LowStockBadge from "../../components/shared/LowStockBadge";
@@ -31,6 +32,7 @@ import { upsertById, type Product, type ProductImage } from "../../types";
 import { variantCombos, variantKey, variantLabel, weakestStock } from "../../variantStock";
 import { collectFieldErrors, requiredMessage } from "../../utils/formValidate";
 import { formatNumberInput } from "../../numberFormat";
+import { csvFilename, csvNumber, downloadCsv, fetchAllRows } from "../../utils/csvExport";
 import {
   BASE_UNITS,
   formatQuantity,
@@ -417,6 +419,37 @@ function Products() {
         showToast(getApiError(loadError, "Unable to delete product"));
       }
     });
+  }
+
+  async function exportProducts() {
+    const rows = await fetchAllRows((page) =>
+      fetchProducts({ q: search.trim(), page, limit: 50 })
+    );
+
+    downloadCsv(csvFilename("products"), rows, [
+      { header: "Product", value: (product) => product.name },
+      { header: "SKU", value: (product) => product.sku || "" },
+      { header: "Category", value: (product) => product.category || "" },
+      { header: "Inventory type", value: (product) => product.inventory_type || "unit" },
+      { header: "Base unit", value: (product) => product.base_unit || "piece" },
+      { header: "Sale unit", value: (product) => product.sale_unit || "piece" },
+      { header: "Minimum quantity step", value: (product) => csvNumber(product.quantity_step) },
+      { header: "Units per sale unit", value: (product) => csvNumber(product.units_per_sale_unit) },
+      { header: "Current cost price", value: (product) => csvNumber(product.cost_price) },
+      { header: "Current sale price", value: (product) => csvNumber(product.price) },
+      { header: "Available stock", value: (product) => csvNumber(product.stock) },
+      {
+        header: "Variants",
+        value: (product) =>
+          (product.variants || [])
+            .map((variant) => {
+              const label = [variant.color, variant.size].filter(Boolean).join(" / ");
+              return `${label || "Default"}: ${formatQuantity(variant.stock)}`;
+            })
+            .join("; "),
+      },
+      { header: "Storefront", value: (product) => (product.featured ? "Featured" : "Standard") },
+    ]);
   }
 
   const columns: DataTableColumn<Product>[] = [
@@ -1020,7 +1053,18 @@ function Products() {
         <div className="mb-3 flex flex-col items-end gap-2">
           <AddButton onClick={openAdd} />
           <div className="flex flex-wrap items-center gap-3">
-            <TableToolbar search={search} onSearch={setSearch} count={total} />
+            <TableToolbar
+              search={search}
+              onSearch={setSearch}
+              count={total}
+              actions={
+                <ExportCsvButton
+                  onExport={exportProducts}
+                  onSuccess={() => showToast("Products CSV downloaded", "success")}
+                  onError={(error) => showToast(getApiError(error, "Unable to export products"))}
+                />
+              }
+            />
           </div>
         </div>
         <DataTable

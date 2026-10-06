@@ -7,6 +7,7 @@ import Money from "../../components/shared/Money";
 import PagePanel from "../../components/shared/PagePanel";
 import StatCard from "../../components/shared/StatCard";
 import TableToolbar from "../../components/shared/TableToolbar";
+import ExportCsvButton from "../../components/shared/ExportCsvButton";
 import { formatPlatformOrderTime } from "../../components/super/platformOrderColumns";
 import { useServerList } from "../../hooks/useServerList";
 import { useToast } from "../../hooks/useToast";
@@ -17,6 +18,7 @@ import {
   type PlatformCommissionLedgerEntry,
   type StoreCommissionSummary,
 } from "../../types";
+import { csvDateTime, csvFilename, csvNumber, downloadCsv, fetchAllRows } from "../../utils/csvExport";
 
 function entryLabel(entryType: PlatformCommissionLedgerEntry["entry_type"]) {
   if (entryType === "received") {
@@ -76,6 +78,20 @@ function Commission() {
 
     void loadSummary();
   }, [showToast]);
+
+  async function exportCommission() {
+    const rows = await fetchAllRows((page) =>
+      fetchStoreCommissionLedger({ q: search.trim(), page, limit: 50 })
+    );
+
+    downloadCsv(csvFilename("commission-ledger"), rows, [
+      { header: "Date", value: (entry) => csvDateTime(entry.created_at) },
+      { header: "Entry", value: (entry) => entryLabel(entry.entry_type) },
+      { header: "Sale ID", value: (entry) => entry.sale_id || "" },
+      { header: "Amount", value: (entry) => csvNumber(entry.amount) },
+      { header: "Note", value: (entry) => entry.note || "" },
+    ]);
+  }
 
   const columns: DataTableColumn<PlatformCommissionLedgerEntry>[] = [
     {
@@ -167,7 +183,18 @@ function Commission() {
 
       <PagePanel>
         <div className="mb-3 flex flex-wrap items-center justify-end gap-3">
-          <TableToolbar search={search} onSearch={setSearch} count={total} />
+          <TableToolbar
+            search={search}
+            onSearch={setSearch}
+            count={total}
+            actions={
+              <ExportCsvButton
+                onExport={exportCommission}
+                onSuccess={() => showToast("Commission CSV downloaded", "success")}
+                onError={(error) => showToast(getApiError(error, "Unable to export commission history"))}
+              />
+            }
+          />
         </div>
         <DataTable
           rows={rows}

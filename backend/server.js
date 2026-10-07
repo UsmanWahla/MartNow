@@ -145,10 +145,15 @@ const server = http.createServer(async (req, res) => {
             return;
         }
 
-        if (error.message === "Invalid JSON" || error.message === "Request body too large") {
-            sendJSON(req, res, 400, {
-                message: "Invalid request"
+        if (error.message === "Request body too large") {
+            sendJSON(req, res, 413, {
+                message: "Request body too large"
             });
+            return;
+        }
+
+        if (error.message === "Invalid JSON") {
+            sendJSON(req, res, 400, { message: "Invalid request" });
             return;
         }
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import InlineEdit from "../../components/store-admin/InlineEdit";
 import Modal from "../../components/shared/Modal";
 import ConfirmModal from "../../components/shared/ConfirmModal";
@@ -69,6 +69,14 @@ const COLOR_PRESETS = [
 ];
 
 const SIZE_PRESETS = ["XS", "S", "M", "L", "XL", "XXL"];
+
+function PendingImagePreview({ file }: { file: File }) {
+  const url = useMemo(() => URL.createObjectURL(file), [file]);
+
+  useEffect(() => () => URL.revokeObjectURL(url), [url]);
+
+  return <img src={url} alt="" className="h-16 w-16 rounded-xl object-cover" />;
+}
 
 function VariantStockGrid({
   colors,
@@ -844,11 +852,7 @@ function Products() {
           ))}
           {imageFiles.map((file, index) => (
             <div key={`${file.name}-${index}`} className="relative">
-              <img
-                src={URL.createObjectURL(file)}
-                alt=""
-                className="h-16 w-16 rounded-xl object-cover"
-              />
+              <PendingImagePreview file={file} />
               <button
                 type="button"
                 className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-slate-900 text-[10px] text-white"

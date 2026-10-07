@@ -36,7 +36,7 @@ function SuperLogin() {
     try {
       const response = await loginSuperAccount({ email, password });
       clearAll();
-      saveSession(response.user, response.token);
+      saveSession(response.user);
       navigate("/super", { replace: true });
     } catch (loginError: unknown) {
       report({ password: getApiError(loginError, "Unable to login") }, showToast);

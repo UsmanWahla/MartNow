@@ -486,10 +486,27 @@ async function updateStore(storeId, data) {
     return { message: "Store updated", store: await getStore(storeId) };
 }
 
+async function setStoreStatus(storeId, value) {
+    const status = String(value || "").trim().toLowerCase();
+
+    if (status !== "active" && status !== "inactive") {
+        throw new ServiceError(400, "Choose a valid store status");
+    }
+
+    const store = await getStore(storeId);
+
+    if (store.status !== status) {
+        await query("UPDATE stores SET status = ? WHERE id = ?", [status, storeId]);
+    }
+
+    return {
+        message: status === "active" ? "Store activated" : "Store deactivated",
+        store: await getStore(storeId)
+    };
+}
+
 async function deactivateStore(storeId) {
-    await getStore(storeId);
-    await query("UPDATE stores SET status = 'inactive' WHERE id = ?", [storeId]);
-    return { message: "Store deactivated" };
+    return setStoreStatus(storeId, "inactive");
 }
 
 async function deleteInactiveStore(storeId) {
@@ -1040,6 +1057,7 @@ module.exports = {
     listStoreProducts,
     createStore,
     updateStore,
+    setStoreStatus,
     deactivateStore,
     deleteInactiveStore,
     getPlatformStats,

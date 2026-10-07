@@ -17,14 +17,7 @@ export interface User {
 }
 
 export const API_URL = import.meta.env.VITE_API_URL ?? "";
-
-export function getToken(): string | null {
-  return localStorage.getItem("token");
-}
-
-export function getRefreshToken(): string | null {
-  return localStorage.getItem("refreshToken");
-}
+const SESSION_KEY = "sessionActive";
 
 export function getUser(): User | null {
   const storedUser = localStorage.getItem("user");
@@ -40,12 +33,31 @@ export function getUser(): User | null {
   }
 }
 
+export function hasSession(): boolean {
+  if (!getUser()) {
+    return false;
+  }
+
+  if (localStorage.getItem(SESSION_KEY) === "1") {
+    return true;
+  }
+
+  // One-time migration for sessions created before cookie-only authentication.
+  if (localStorage.getItem("token")) {
+    localStorage.removeItem("token");
+    localStorage.setItem(SESSION_KEY, "1");
+    return true;
+  }
+
+  return false;
+}
+
 export function isCustomerRole(role?: string | null): boolean {
   return role === "shopper" || role === "customer";
 }
 
 export function isShopperUser(user: User | null): boolean {
-  return Boolean(user && getToken() && isCustomerRole(user.role));
+  return Boolean(user && hasSession() && isCustomerRole(user.role));
 }
 
 export function isShopperSession(): boolean {
@@ -57,16 +69,25 @@ export function isCustomerSession(): boolean {
 }
 
 export function isSuperAdmin(user: User | null = getUser()): boolean {
-  return Boolean(user && getToken() && user.role === "super_admin");
+  return Boolean(user && hasSession() && user.role === "super_admin");
 }
 
 export function shopLoginPath(slug: string, next: string): string {
   return `/account/login?next=${encodeURIComponent(next || `/shop/${slug}`)}`;
 }
 
+export function safeNextPath(next: string | null, fallback = "/stores"): string {
+  if (!next || !next.startsWith("/") || next.startsWith("//") || next.includes("\\")) {
+    return fallback;
+  }
+
+  return next;
+}
+
 export function clearAuth(): void {
   localStorage.removeItem("token");
   localStorage.removeItem("refreshToken");
+  localStorage.removeItem(SESSION_KEY);
   localStorage.removeItem("user");
 }
 
@@ -75,13 +96,10 @@ export function saveUser(user: User): void {
   window.dispatchEvent(new Event("auth-user-changed"));
 }
 
-export function saveSession(user: User, token?: string) {
+export function saveSession(user: User) {
+  localStorage.removeItem("token");
   localStorage.removeItem("refreshToken");
-
-  if (token) {
-    localStorage.setItem("token", token);
-  }
-
+  localStorage.setItem(SESSION_KEY, "1");
   saveUser(user);
 }
 
@@ -100,15 +118,7 @@ export function getUserInitials(user: User | null): string {
 }
 
 export function authHeader(): Record<string, string> {
-  const token = getToken();
-
-  if (!token) {
-    return {};
-  }
-
-  return {
-    Authorization: `Bearer ${token}`,
-  };
+  return {};
 }
 
 export function getApiError(error: unknown, fallback: string): string {
@@ -136,13 +146,12 @@ let refreshRequest: Promise<boolean> | null = null;
 let responseInterceptor: number | null = null;
 
 async function refreshSession() {
-  const refreshToken = getRefreshToken();
   const response = await axios.post(
     `${API_URL}/api/refresh`,
-    refreshToken ? { refreshToken } : {},
+    {},
     { withCredentials: true }
   );
-  saveSession(response.data.user, response.data.token);
+  saveSession(response.data.user);
   return true;
 }
 

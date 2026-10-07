@@ -49,7 +49,7 @@ function getCorsOrigin(req) {
 function corsHeaders(req) {
     const origin = getCorsOrigin(req);
     const headers = {
-        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization"
     };
 
@@ -216,17 +216,31 @@ const MAX_BODY_BYTES = 1_000_000;
 function getRequestBody(req) {
     return new Promise((resolve, reject) => {
         let body = "";
+        let bodyBytes = 0;
+        let rejected = false;
 
         req.on("data", (chunk) => {
-            body += chunk.toString();
-
-            if (body.length > MAX_BODY_BYTES) {
-                reject(new Error("Request body too large"));
-                req.destroy();
+            if (rejected) {
+                return;
             }
+
+            bodyBytes += Buffer.byteLength(chunk);
+
+            if (bodyBytes > MAX_BODY_BYTES) {
+                rejected = true;
+                body = "";
+                reject(new Error("Request body too large"));
+                return;
+            }
+
+            body += chunk.toString();
         });
 
         req.on("end", () => {
+            if (rejected) {
+                return;
+            }
+
             if (!body.trim()) {
                 resolve({});
                 return;
@@ -240,7 +254,9 @@ function getRequestBody(req) {
         });
 
         req.on("error", (error) => {
-            reject(error);
+            if (!rejected) {
+                reject(error);
+            }
         });
     });
 }

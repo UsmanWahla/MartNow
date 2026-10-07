@@ -1,6 +1,6 @@
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useState } from "react";
-import { getApiError, saveSession } from "../../auth";
+import { getApiError, safeNextPath, saveSession } from "../../auth";
 import { signupCustomerAccount } from "../../api";
 import PasswordInput from "../../components/shared/PasswordInput";
 import AuthCard from "../../components/shared/AuthCard";
@@ -52,9 +52,8 @@ function CustomerRegister() {
     try {
       const response = await signupCustomerAccount({ name, email, password });
       clearAll();
-      saveSession(response.user, response.token);
-      const next = searchParams.get("next") || "/stores";
-      navigate(next.startsWith("/") ? next : "/stores", { replace: true });
+      saveSession(response.user);
+      navigate(safeNextPath(searchParams.get("next")), { replace: true });
     } catch (signupError: unknown) {
       report({ email: getApiError(signupError, "Unable to create account") }, showToast);
     } finally {

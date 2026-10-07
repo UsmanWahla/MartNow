@@ -1,7 +1,7 @@
 const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const { query } = require("../utils/query");
+const { query, withTransaction } = require("../utils/query");
 const { ServiceError } = require("../utils/errors");
 const {
     isValidEmail,
@@ -49,13 +49,18 @@ function createToken(user) {
 
 async function createRefreshToken(userId) {
     const token = crypto.randomBytes(32).toString("hex");
+    const tokenHash = hashRefreshToken(token);
 
     await query(
         "INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 7 DAY))",
-        [userId, token]
+        [userId, tokenHash]
     );
 
     return token;
+}
+
+function hashRefreshToken(token) {
+    return crypto.createHash("sha256").update(String(token || "")).digest("hex");
 }
 
 async function authPayload(user) {
@@ -287,30 +292,42 @@ async function refresh(refreshToken) {
         throw new ServiceError(401, "Invalid or expired token");
     }
 
-    const rows = await query(
-        `
-        SELECT refresh_tokens.token, users.*
-        FROM refresh_tokens
-        INNER JOIN users ON users.id = refresh_tokens.user_id
-        WHERE refresh_tokens.token = ? AND refresh_tokens.expires_at > NOW()
-        `,
-        [token]
-    );
+    return withTransaction(async () => {
+        const rows = await query(
+            `
+            SELECT refresh_tokens.id AS refresh_token_id, users.*
+            FROM refresh_tokens
+            INNER JOIN users ON users.id = refresh_tokens.user_id
+            WHERE refresh_tokens.token IN (?, ?) AND refresh_tokens.expires_at > NOW()
+            FOR UPDATE
+            `,
+            [hashRefreshToken(token), token]
+        );
 
-    if (rows.length === 0) {
-        throw new ServiceError(401, "Invalid or expired token");
-    }
+        if (rows.length === 0) {
+            throw new ServiceError(401, "Invalid or expired token");
+        }
 
-    await query("DELETE FROM refresh_tokens WHERE token = ?", [token]);
+        const deleted = await query("DELETE FROM refresh_tokens WHERE id = ?", [
+            rows[0].refresh_token_id
+        ]);
 
-    return authPayload(rows[0]);
+        if (deleted.affectedRows !== 1) {
+            throw new ServiceError(401, "Invalid or expired token");
+        }
+
+        return authPayload(rows[0]);
+    });
 }
 
 async function logout(refreshToken) {
     const token = String(refreshToken || "").trim();
 
     if (token) {
-        await query("DELETE FROM refresh_tokens WHERE token = ?", [token]);
+        await query("DELETE FROM refresh_tokens WHERE token IN (?, ?)", [
+            hashRefreshToken(token),
+            token
+        ]);
     }
 
     return { message: "Logged out" };

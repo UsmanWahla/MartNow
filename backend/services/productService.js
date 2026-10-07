@@ -15,6 +15,7 @@ const PRODUCT_COLUMNS = `
     id, name, sku, price, cost_price, stock, image_path, description, category, featured,
     inventory_type, base_unit, sale_unit, quantity_step, units_per_sale_unit
 `;
+const MAX_PRODUCT_IMAGES = 8;
 
 async function getProduct(tenantId, productId) {
     const results = await query(
@@ -125,6 +126,23 @@ async function saveCatalog(productId, data) {
             ? [data.image_path]
             : [];
     const keepIds = parseJson(data.keep_image_ids, undefined);
+    const keepPaths = parseJson(data.keep_image_paths, [])
+        .map((imagePath) => String(imagePath || "").trim())
+        .filter(Boolean);
+    const currentImages = await query(
+        "SELECT id FROM product_images WHERE product_id = ?",
+        [productId]
+    );
+    const keepIdSet = keepIds === undefined
+        ? null
+        : new Set(keepIds.map(Number).filter((id) => id > 0));
+    const retainedCount = keepIdSet === null
+        ? currentImages.length
+        : currentImages.filter((image) => keepIdSet.has(image.id)).length;
+
+    if (retainedCount + keepPaths.length + newPaths.length > MAX_PRODUCT_IMAGES) {
+        throw new ServiceError(400, `A product can have up to ${MAX_PRODUCT_IMAGES} images`);
+    }
 
     if (keepIds !== undefined) {
         const keep = keepIds.map(Number).filter((id) => id > 0);
@@ -139,9 +157,6 @@ async function saveCatalog(productId, data) {
         }
     }
 
-    const keepPaths = parseJson(data.keep_image_paths, [])
-        .map((imagePath) => String(imagePath || "").trim())
-        .filter(Boolean);
     const incoming = [...keepPaths, ...newPaths];
 
     if (incoming.length > 0) {
@@ -422,76 +437,78 @@ async function addProduct(tenantId, data, actorId = tenantId) {
 }
 
 async function updateProduct(tenantId, productId, data) {
-    const existingRows = await query(
-        `SELECT ${PRODUCT_COLUMNS} FROM products WHERE id = ? AND user_id = ?`,
-        [productId, tenantId]
-    );
-
-    if (existingRows.length === 0) {
-        throw new ServiceError(404, "Product not found");
-    }
-
-    const existing = existingRows[0];
-    const productData = readProduct(data, existing);
-    const {
-        productName,
-        salePrice,
-        costPrice,
-        sku,
-        description,
-        category,
-        featured,
-        inventoryType,
-        baseUnit,
-        saleUnit,
-        quantityStep,
-        unitsPerSaleUnit
-    } = productData;
-    const imagePath = String(data.image_path || "").trim();
-
-    const unitsChanged =
-        inventoryType !== existing.inventory_type ||
-        baseUnit !== existing.base_unit ||
-        saleUnit !== existing.sale_unit ||
-        quantityStep !== roundQuantity(existing.quantity_step) ||
-        unitsPerSaleUnit !== roundQuantity(existing.units_per_sale_unit);
-
-    if (unitsChanged && roundQuantity(existing.stock) > 0) {
-        throw new ServiceError(
-            400,
-            "Stock out this product before changing its units or quantity conversion"
-        );
-    }
-
-    await assertUniqueName(tenantId, productName, productId);
-    await assertUniqueSku(tenantId, sku, productId);
-
-    const result = imagePath
-        ? await query(
-            `UPDATE products SET name = ?, sku = ?, price = ?, cost_price = ?, description = ?,
-                category = ?, featured = ?, image_path = ?, inventory_type = ?, base_unit = ?,
-                sale_unit = ?, quantity_step = ?, units_per_sale_unit = ?
-             WHERE id = ? AND user_id = ?`,
-            [productName, sku, salePrice, costPrice, description, category, featured ? 1 : 0, imagePath, inventoryType, baseUnit, saleUnit, quantityStep, unitsPerSaleUnit, productId, tenantId]
-        )
-        : await query(
-            `UPDATE products SET name = ?, sku = ?, price = ?, cost_price = ?, description = ?,
-                category = ?, featured = ?, inventory_type = ?, base_unit = ?, sale_unit = ?,
-                quantity_step = ?, units_per_sale_unit = ?
-             WHERE id = ? AND user_id = ?`,
-            [productName, sku, salePrice, costPrice, description, category, featured ? 1 : 0, inventoryType, baseUnit, saleUnit, quantityStep, unitsPerSaleUnit, productId, tenantId]
+    return withTransaction(async () => {
+        const existingRows = await query(
+            `SELECT ${PRODUCT_COLUMNS} FROM products WHERE id = ? AND user_id = ? FOR UPDATE`,
+            [productId, tenantId]
         );
 
-    if (result.affectedRows === 0) {
-        throw new ServiceError(404, "Product not found");
-    }
+        if (existingRows.length === 0) {
+            throw new ServiceError(404, "Product not found");
+        }
 
-    await saveCatalog(productId, data);
+        const existing = existingRows[0];
+        const productData = readProduct(data, existing);
+        const {
+            productName,
+            salePrice,
+            costPrice,
+            sku,
+            description,
+            category,
+            featured,
+            inventoryType,
+            baseUnit,
+            saleUnit,
+            quantityStep,
+            unitsPerSaleUnit
+        } = productData;
+        const imagePath = String(data.image_path || "").trim();
 
-    return {
-        message: "Product updated",
-        product: await getProduct(tenantId, productId)
-    };
+        const unitsChanged =
+            inventoryType !== existing.inventory_type ||
+            baseUnit !== existing.base_unit ||
+            saleUnit !== existing.sale_unit ||
+            quantityStep !== roundQuantity(existing.quantity_step) ||
+            unitsPerSaleUnit !== roundQuantity(existing.units_per_sale_unit);
+
+        if (unitsChanged && roundQuantity(existing.stock) > 0) {
+            throw new ServiceError(
+                400,
+                "Stock out this product before changing its units or quantity conversion"
+            );
+        }
+
+        await assertUniqueName(tenantId, productName, productId);
+        await assertUniqueSku(tenantId, sku, productId);
+
+        const result = imagePath
+            ? await query(
+                `UPDATE products SET name = ?, sku = ?, price = ?, cost_price = ?, description = ?,
+                    category = ?, featured = ?, image_path = ?, inventory_type = ?, base_unit = ?,
+                    sale_unit = ?, quantity_step = ?, units_per_sale_unit = ?
+                 WHERE id = ? AND user_id = ?`,
+                [productName, sku, salePrice, costPrice, description, category, featured ? 1 : 0, imagePath, inventoryType, baseUnit, saleUnit, quantityStep, unitsPerSaleUnit, productId, tenantId]
+            )
+            : await query(
+                `UPDATE products SET name = ?, sku = ?, price = ?, cost_price = ?, description = ?,
+                    category = ?, featured = ?, inventory_type = ?, base_unit = ?, sale_unit = ?,
+                    quantity_step = ?, units_per_sale_unit = ?
+                 WHERE id = ? AND user_id = ?`,
+                [productName, sku, salePrice, costPrice, description, category, featured ? 1 : 0, inventoryType, baseUnit, saleUnit, quantityStep, unitsPerSaleUnit, productId, tenantId]
+            );
+
+        if (result.affectedRows === 0) {
+            throw new ServiceError(404, "Product not found");
+        }
+
+        await saveCatalog(productId, data);
+
+        return {
+            message: "Product updated",
+            product: await getProduct(tenantId, productId)
+        };
+    });
 }
 
 async function deleteProduct(tenantId, productId) {

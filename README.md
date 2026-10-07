@@ -54,7 +54,7 @@ Inventory and business rules below still apply to the store panel; marketplace c
 
 **Receipts.** Print a sale from the 3-dot menu.
 
-**Safer login.** Access token lasts 15 minutes; refresh token lasts 7 days. The API sets both as **httpOnly cookies**, while the React app keeps only the access token and user profile in **localStorage** for its existing Bearer requests. The refresh token is never returned in API JSON and is read only from its cookie by `/api/refresh`.
+**Safer login.** Access token lasts 15 minutes; refresh token lasts 7 days. The API sets both as **httpOnly cookies**. React stores the user profile and a non-secret session marker in **localStorage**, but never stores either token. The refresh token is never returned in API JSON and is read only from its cookie by `/api/refresh`.
 
 ### Production authentication configuration
 
@@ -223,9 +223,9 @@ No `error.response` → backend is off.
 | | React state | localStorage |
 |--|-------------|--------------|
 | Lives | RAM, gone on refresh | Browser disk |
-| Used for | forms, tables, modals | `token` + `user` |
+| Used for | forms, tables, modals | `user` + non-secret session marker |
 
-After login we save token then `window.location.href = "/dashboard"` (full reload). Layout reads the token.
+After login the API stores tokens in httpOnly cookies. React saves only the public user profile and a session marker; layouts use those for navigation while every API still enforces the signed cookie.
 
 ### 3.10 TypeScript
 
@@ -321,10 +321,10 @@ Router only. Does not fetch products.
 | Function | Job |
 |----------|-----|
 | `API_URL` | `import.meta.env.VITE_API_URL ?? ""` |
-| `getToken` / `getUser` | read localStorage |
+| `getUser` / `hasSession` | read the public profile and session marker from localStorage |
 | `clearAuth` | logout |
 | `saveUser` | after name change + custom event `auth-user-changed` |
-| `authHeader` | `{ Authorization: "Bearer " + token }` |
+| `authHeader` | compatibility helper; browser authentication uses httpOnly cookies |
 | `getApiError` | Axios error → string |
 | `getUserInitials` | “Ali Khan” → “AK” |
 | `setupApi` | interceptor for expired JWT |
@@ -598,11 +598,11 @@ node migrate-business.js
 ## 8. Authentication end-to-end
 
 1. User submits login/signup  
-2. Backend validates → hash or compare → JWT 1 hour  
-3. React stores `token` + `user` (id, name, email, role, tenantId)  
-4. Later: `Authorization: Bearer <token>`  
+2. Backend validates → hash or compare → 15-minute access JWT + 7-day refresh token
+3. Backend stores both tokens in httpOnly cookies; React stores only the public user profile
+4. Later requests send the cookies automatically
 5. `jwt.verify` → `tenantId` for SQL  
-6. After 1 hour: 401 → interceptor → login page  
+6. After 15 minutes: 401 → interceptor refreshes once, or returns to the matching login page
 
 **Two locks + isolation**
 
@@ -740,7 +740,7 @@ npm test
 1. **`pages/`** = screens  
 2. **`components/`** = reusable UI  
 3. **`App.tsx`** = which URL  
-4. **`auth.ts`** = token in localStorage  
+4. **`auth.ts`** = public session state + cookie refresh handling
 5. **`server.js` → routes → services** = APIs + rules + SQL  
 6. **`db.js`** = MySQL door  
 7. **React state** = what you see now  

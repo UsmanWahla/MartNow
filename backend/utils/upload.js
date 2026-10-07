@@ -8,6 +8,7 @@ const { ServiceError } = require("./errors");
 const UPLOAD_ROOT = path.join(__dirname, "..", "uploads");
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 const MAX_FILES = 8;
+const UPLOADED_FILES = Symbol("uploadedFiles");
 const ALLOWED_TYPES = {
     "image/jpeg": ".jpg",
     "image/jpg": ".jpg",
@@ -20,6 +21,93 @@ const MIME_BY_EXT = {
     ".png": "image/png",
     ".webp": "image/webp"
 };
+
+async function fileMatchesMime(filePath, mime) {
+    const handle = await fs.promises.open(filePath, "r");
+
+    try {
+        const header = Buffer.alloc(12);
+        const { bytesRead } = await handle.read(header, 0, header.length, 0);
+
+        if (mime === "image/jpeg" || mime === "image/jpg") {
+            return bytesRead >= 3 && header[0] === 0xff && header[1] === 0xd8 && header[2] === 0xff;
+        }
+
+        if (mime === "image/png") {
+            return bytesRead >= 8 && header.subarray(0, 8).equals(
+                Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+            );
+        }
+
+        if (mime === "image/webp") {
+            return bytesRead >= 12 &&
+                header.subarray(0, 4).toString("ascii") === "RIFF" &&
+                header.subarray(8, 12).toString("ascii") === "WEBP";
+        }
+
+        return false;
+    } finally {
+        await handle.close();
+    }
+}
+
+function toUploadFilePath(uploadPath) {
+    const value = String(uploadPath || "").trim().replace(/\\/g, "/");
+
+    if (!value.startsWith("/uploads/")) {
+        return null;
+    }
+
+    const root = path.resolve(UPLOAD_ROOT);
+    const filePath = path.resolve(path.join(__dirname, "..", value.replace(/^\/+/, "")));
+
+    if (filePath === root || !filePath.startsWith(root + path.sep)) {
+        return null;
+    }
+
+    return filePath;
+}
+
+async function deleteUploadPaths(uploadPaths) {
+    const filePaths = [...new Set((uploadPaths || []).map(toUploadFilePath).filter(Boolean))];
+
+    await Promise.all(
+        filePaths.map(async (filePath) => {
+            try {
+                await fs.promises.unlink(filePath);
+            } catch (error) {
+                if (error.code !== "ENOENT") {
+                    console.error("Unable to remove upload:", error.message);
+                }
+            }
+        })
+    );
+}
+
+async function deleteTenantProductUploads(tenantId) {
+    const id = Number(tenantId);
+
+    if (!Number.isInteger(id) || id <= 0) {
+        return;
+    }
+
+    const directory = path.resolve(UPLOAD_ROOT, "products", String(id));
+    const productsRoot = path.resolve(UPLOAD_ROOT, "products");
+
+    if (!directory.startsWith(productsRoot + path.sep)) {
+        return;
+    }
+
+    try {
+        await fs.promises.rm(directory, { recursive: true, force: true });
+    } catch (error) {
+        console.error("Unable to remove product uploads:", error.message);
+    }
+}
+
+function getUploadedPaths(form) {
+    return Array.isArray(form?.[UPLOADED_FILES]) ? [...form[UPLOADED_FILES]] : [];
+}
 
 function parseProductForm(req, tenantId) {
     const contentType = String(req.headers["content-type"] || "");
@@ -34,6 +122,13 @@ function parseProductForm(req, tenantId) {
         let pendingFiles = 0;
         const fields = {};
         const imagePaths = [];
+        const createdFiles = new Set();
+
+        function cleanupCreatedFiles() {
+            for (const filePath of createdFiles) {
+                fs.unlink(filePath, () => undefined);
+            }
+        }
 
         function fail(error) {
             if (settled) {
@@ -41,6 +136,7 @@ function parseProductForm(req, tenantId) {
             }
 
             settled = true;
+            cleanupCreatedFiles();
             reject(error);
         }
 
@@ -55,6 +151,11 @@ function parseProductForm(req, tenantId) {
                 fields.image_path = imagePaths[0];
                 fields.image_paths = imagePaths;
             }
+
+            Object.defineProperty(fields, UPLOADED_FILES, {
+                value: [...imagePaths],
+                enumerable: false
+            });
 
             resolve(fields);
         }
@@ -86,21 +187,41 @@ function parseProductForm(req, tenantId) {
             const out = fs.createWriteStream(dest);
             let limited = false;
             pendingFiles += 1;
+            createdFiles.add(dest);
 
             file.on("limit", () => {
                 limited = true;
             });
 
             file.pipe(out);
-            out.on("close", () => {
-                pendingFiles -= 1;
+            out.on("close", async () => {
+                if (settled) {
+                    pendingFiles -= 1;
+                    fs.unlink(dest, () => undefined);
+                    return;
+                }
 
                 if (limited) {
+                    pendingFiles -= 1;
                     fs.unlink(dest, () => undefined);
                     fail(new ServiceError(400, "Image must be under 2MB"));
                     return;
                 }
 
+                try {
+                    if (!(await fileMatchesMime(dest, mime))) {
+                        pendingFiles -= 1;
+                        fs.unlink(dest, () => undefined);
+                        fail(new ServiceError(400, "Image content does not match its file type"));
+                        return;
+                    }
+                } catch (error) {
+                    pendingFiles -= 1;
+                    fail(error);
+                    return;
+                }
+
+                pendingFiles -= 1;
                 imagePaths.push(`/uploads/products/${tenantId}/${filename}`);
                 tryDone();
             });
@@ -112,6 +233,7 @@ function parseProductForm(req, tenantId) {
         });
 
         busboy.on("error", fail);
+        busboy.on("filesLimit", () => fail(new ServiceError(400, "A product can have up to 8 images")));
         busboy.on("finish", () => {
             finished = true;
             tryDone();
@@ -188,6 +310,13 @@ function parseStoreForm(
         let pendingFiles = 0;
         const fields = {};
         let imagePath = "";
+        const createdFiles = new Set();
+
+        function cleanupCreatedFiles() {
+            for (const filePath of createdFiles) {
+                fs.unlink(filePath, () => undefined);
+            }
+        }
 
         function fail(error) {
             if (settled) {
@@ -195,6 +324,7 @@ function parseStoreForm(
             }
 
             settled = true;
+            cleanupCreatedFiles();
             reject(error);
         }
 
@@ -208,6 +338,11 @@ function parseStoreForm(
             if (imagePath) {
                 fields[resultField] = imagePath;
             }
+
+            Object.defineProperty(fields, UPLOADED_FILES, {
+                value: imagePath ? [imagePath] : [],
+                enumerable: false
+            });
 
             resolve(fields);
         }
@@ -239,21 +374,41 @@ function parseStoreForm(
             const out = fs.createWriteStream(dest);
             let limited = false;
             pendingFiles += 1;
+            createdFiles.add(dest);
 
             file.on("limit", () => {
                 limited = true;
             });
 
             file.pipe(out);
-            out.on("close", () => {
-                pendingFiles -= 1;
+            out.on("close", async () => {
+                if (settled) {
+                    pendingFiles -= 1;
+                    fs.unlink(dest, () => undefined);
+                    return;
+                }
 
                 if (limited) {
+                    pendingFiles -= 1;
                     fs.unlink(dest, () => undefined);
                     fail(new ServiceError(400, "Image must be under 2MB"));
                     return;
                 }
 
+                try {
+                    if (!(await fileMatchesMime(dest, mime))) {
+                        pendingFiles -= 1;
+                        fs.unlink(dest, () => undefined);
+                        fail(new ServiceError(400, "Image content does not match its file type"));
+                        return;
+                    }
+                } catch (error) {
+                    pendingFiles -= 1;
+                    fail(error);
+                    return;
+                }
+
+                pendingFiles -= 1;
                 imagePath = `/uploads/${uploadFolder}/${filename}`;
                 tryDone();
             });
@@ -265,6 +420,7 @@ function parseStoreForm(
         });
 
         busboy.on("error", fail);
+        busboy.on("filesLimit", () => fail(new ServiceError(400, "Only one image can be uploaded")));
         busboy.on("finish", () => {
             finished = true;
             tryDone();
@@ -277,4 +433,12 @@ function parseStoreForm(
     });
 }
 
-module.exports = { parseProductForm, parseStoreForm, handleUploads, UPLOAD_ROOT };
+module.exports = {
+    parseProductForm,
+    parseStoreForm,
+    handleUploads,
+    deleteUploadPaths,
+    deleteTenantProductUploads,
+    getUploadedPaths,
+    UPLOAD_ROOT
+};

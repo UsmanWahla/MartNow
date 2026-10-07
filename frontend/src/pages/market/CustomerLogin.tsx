@@ -1,6 +1,6 @@
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useState } from "react";
-import { getApiError, getUser, isShopperUser, saveSession } from "../../auth";
+import { getApiError, getUser, isShopperUser, safeNextPath, saveSession } from "../../auth";
 import { loginCustomerAccount } from "../../api";
 import AuthCard from "../../components/shared/AuthCard";
 import AuthLoginFields from "../../components/shared/AuthLoginFields";
@@ -19,7 +19,7 @@ function CustomerLogin() {
   const user = getUser();
 
   if (isShopperUser(user)) {
-    return <Navigate to={searchParams.get("next") || "/stores"} replace />;
+    return <Navigate to={safeNextPath(searchParams.get("next"))} replace />;
   }
 
   async function handleLogin(event: React.FormEvent) {
@@ -42,9 +42,8 @@ function CustomerLogin() {
     try {
       const response = await loginCustomerAccount({ email, password });
       clearAll();
-      saveSession(response.user, response.token);
-      const next = searchParams.get("next") || "/stores";
-      navigate(next.startsWith("/") ? next : "/stores", { replace: true });
+      saveSession(response.user);
+      navigate(safeNextPath(searchParams.get("next")), { replace: true });
     } catch (loginError: unknown) {
       report({ password: getApiError(loginError, "Unable to login") }, showToast);
     } finally {

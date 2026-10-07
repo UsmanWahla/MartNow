@@ -4,7 +4,12 @@ const { clientKey, sendAuth } = require("../utils/authHttp");
 const { handleRateLimitedAuth } = require("../utils/authRouteHelpers");
 const { SUPER_ADMIN } = require("../utils/roles");
 const { requireRole } = require("../middleware/auth");
-const { parseStoreForm } = require("../utils/upload");
+const {
+    parseStoreForm,
+    deleteUploadPaths,
+    deleteTenantProductUploads,
+    getUploadedPaths
+} = require("../utils/upload");
 const authService = require("../services/authService");
 const storeService = require("../services/storeService");
 const commissionLedgerService = require("../services/commissionLedgerService");
@@ -18,6 +23,7 @@ async function handleSuperRoutes(req, res) {
     const storeId = getNumericId(path, "/api/super/stores");
     const orderId = getNumericId(path, "/api/super/orders");
     const statusMatch = path.match(/^\/api\/super\/orders\/(\d+)\/status$/);
+    const storeStatusMatch = path.match(/^\/api\/super\/stores\/(\d+)\/status$/);
     const storeProductsMatch = path.match(/^\/api\/super\/stores\/(\d+)\/products$/);
 
     if (req.method === "POST" && path === "/api/super/login") {
@@ -213,7 +219,16 @@ async function handleSuperRoutes(req, res) {
         }
 
         const body = await parseStoreForm(req);
-        sendJSON(req, res, 201, await storeService.createStore(body));
+        let result;
+
+        try {
+            result = await storeService.createStore(body);
+        } catch (error) {
+            await deleteUploadPaths(getUploadedPaths(body));
+            throw error;
+        }
+
+        sendJSON(req, res, 201, result);
         return true;
     }
 
@@ -224,8 +239,39 @@ async function handleSuperRoutes(req, res) {
             return true;
         }
 
+        const existing = await storeService.getStore(storeId);
         const body = await parseStoreForm(req);
-        sendJSON(req, res, 200, await storeService.updateStore(storeId, body));
+        let result;
+
+        try {
+            result = await storeService.updateStore(storeId, body);
+        } catch (error) {
+            await deleteUploadPaths(getUploadedPaths(body));
+            throw error;
+        }
+
+        if (existing.logo_path && existing.logo_path !== result.store.logo_path) {
+            await deleteUploadPaths([existing.logo_path]);
+        }
+
+        sendJSON(req, res, 200, result);
+        return true;
+    }
+
+    if (req.method === "PUT" && storeStatusMatch) {
+        const auth = requireSuper(req, res);
+
+        if (!auth) {
+            return true;
+        }
+
+        const body = await getRequestBody(req);
+        sendJSON(
+            req,
+            res,
+            200,
+            await storeService.setStoreStatus(Number(storeStatusMatch[1]), body.status)
+        );
         return true;
     }
 
@@ -237,14 +283,19 @@ async function handleSuperRoutes(req, res) {
         }
 
         const permanent = getQuery(req.url).get("permanent") === "1";
-        sendJSON(
-            req,
-            res,
-            200,
-            permanent
-                ? await storeService.deleteInactiveStore(storeId)
-                : await storeService.deactivateStore(storeId)
-        );
+        const existing = permanent ? await storeService.getStore(storeId) : null;
+        const result = permanent
+            ? await storeService.deleteInactiveStore(storeId)
+            : await storeService.deactivateStore(storeId);
+
+        if (permanent && existing) {
+            await Promise.all([
+                deleteUploadPaths([existing.logo_path]),
+                deleteTenantProductUploads(existing.tenant_user_id)
+            ]);
+        }
+
+        sendJSON(req, res, 200, result);
         return true;
     }
 

@@ -15,6 +15,7 @@ export function useServerList<T>(
   const fetcherRef = useRef(fetcher);
   const onErrorRef = useRef(onError);
   const skipDebounce = useRef(true);
+  const requestIdRef = useRef(0);
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
@@ -42,16 +43,29 @@ export function useServerList<T>(
   }, [search]);
 
   const loadList = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
+
     try {
       const result = await fetcherRef.current(query, page);
+
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+
       setRows(Array.isArray(result?.rows) ? result.rows : []);
       setTotal(Number(result?.total) || 0);
     } catch (error) {
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+
       onErrorRef.current(error);
       setRows([]);
       setTotal(0);
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [page, query]);
 
@@ -59,6 +73,10 @@ export function useServerList<T>(
     // eslint-disable-next-line react-hooks/set-state-in-effect -- list fetch
     setLoading(true);
     void loadList();
+
+    return () => {
+      requestIdRef.current += 1;
+    };
   }, [extraKey, loadList]);
 
   function goToPage(nextPage: number) {

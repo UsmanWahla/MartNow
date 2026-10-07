@@ -1,5 +1,8 @@
 const { describe, it, before, after } = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const { Readable } = require("node:stream");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
 
@@ -13,8 +16,11 @@ const dashboardService = require("../services/dashboardService");
 const reportService = require("../services/reportService");
 const stockService = require("../services/stockService");
 const staffService = require("../services/staffService");
+const profileService = require("../services/profileService");
 const { requireRole } = require("../middleware/auth");
-const { authCookies, corsHeaders } = require("../utils/http");
+const { authCookies, corsHeaders, getRequestBody } = require("../utils/http");
+const { clientKey } = require("../utils/authHttp");
+const { deleteUploadPaths, getUploadedPaths, UPLOAD_ROOT } = require("../utils/upload");
 
 const email = `test.stock.${Date.now()}@example.com`;
 const password = "Testpass1";
@@ -91,6 +97,7 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
             assert.equal(allowed.Vary, "Origin");
             assert.equal(blocked["Access-Control-Allow-Origin"], undefined);
             assert.equal(blocked["Access-Control-Allow-Credentials"], undefined);
+            assert.match(allowed["Access-Control-Allow-Methods"], /\bPATCH\b/);
             assert.ok(cookies.every((cookie) => cookie.includes("HttpOnly")));
             assert.ok(cookies.every((cookie) => cookie.includes("Secure")));
         } finally {
@@ -108,6 +115,24 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
         await assert.rejects(
             () => authService.login({ email, password: "Wrongpass1" }),
             (error) => error.status === 401
+        );
+    });
+
+    it("normalizes login rate-limit identifiers", () => {
+        const req = { socket: { remoteAddress: "127.0.0.1" } };
+
+        assert.equal(
+            clientKey(req, "  User@Example.com "),
+            clientKey(req, "user@example.com")
+        );
+    });
+
+    it("rejects oversized JSON bodies without destroying the request stream", async () => {
+        const request = Readable.from([Buffer.alloc(1_000_001, "a")]);
+
+        await assert.rejects(
+            () => getRequestBody(request),
+            (error) => error.message === "Request body too large"
         );
     });
 
@@ -326,6 +351,129 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
             ["owner", "manager"]
         );
         assert.equal(blocked, null);
+    });
+
+    it("rolls back product details when an invalid variant change fails", async () => {
+        const added = await productService.addProduct(userId, {
+            name: "Transactional Product",
+            price: 20,
+            cost_price: 10,
+            stock: 2
+        });
+
+        await assert.rejects(
+            () =>
+                productService.updateProduct(userId, added.product.id, {
+                    name: "Partially Updated Product",
+                    price: 25,
+                    cost_price: 10,
+                    colors: [{ name: "Red", hex: "#ff0000" }],
+                    sizes: []
+                }),
+            (error) => error.status === 400
+        );
+
+        const unchanged = await productService.getProduct(userId, added.product.id);
+        assert.equal(unchanged.name, "Transactional Product");
+        assert.deepEqual(unchanged.colors, []);
+        assert.deepEqual(
+            unchanged.variants.map(({ color, size }) => ({ color, size })),
+            [{ color: "", size: "" }]
+        );
+    });
+
+    it("rejects more than eight product images without creating a product", async () => {
+        const name = `Too Many Images ${Date.now()}`;
+
+        await assert.rejects(
+            () =>
+                productService.addProduct(userId, {
+                    name,
+                    price: 20,
+                    cost_price: 10,
+                    stock: 0,
+                    image_paths: Array.from(
+                        { length: 9 },
+                        (_, index) => `/uploads/products/${userId}/image-${index}.png`
+                    )
+                }),
+            (error) => error.status === 400
+        );
+
+        const rows = await query("SELECT id FROM products WHERE user_id = ? AND name = ?", [
+            userId,
+            name
+        ]);
+        assert.equal(rows.length, 0);
+    });
+
+    it("only deletes files inside the upload directory", async () => {
+        const directory = path.join(UPLOAD_ROOT, "test-cleanup");
+        const filePath = path.join(directory, "remove-me.png");
+        fs.mkdirSync(directory, { recursive: true });
+        fs.writeFileSync(filePath, "test");
+
+        await deleteUploadPaths([
+            "/uploads/test-cleanup/remove-me.png",
+            "/uploads/../../package.json"
+        ]);
+
+        assert.equal(fs.existsSync(filePath), false);
+        assert.equal(fs.existsSync(path.join(__dirname, "..", "package.json")), true);
+        fs.rmSync(directory, { recursive: true, force: true });
+    });
+
+    it("does not treat client-provided JSON paths as newly uploaded files", () => {
+        assert.deepEqual(
+            getUploadedPaths({ logo_path: "/uploads/stores/another-store.png" }),
+            []
+        );
+    });
+
+    it("stores refresh tokens as hashes and rotates them only once", async () => {
+        const login = await authService.login({ email, password });
+        const stored = await query(
+            "SELECT token FROM refresh_tokens WHERE user_id = ? ORDER BY id DESC LIMIT 1",
+            [userId]
+        );
+
+        assert.notEqual(stored[0].token, login.refreshToken);
+        assert.equal(stored[0].token.length, 64);
+
+        const attempts = await Promise.allSettled([
+            authService.refresh(login.refreshToken),
+            authService.refresh(login.refreshToken)
+        ]);
+        assert.equal(attempts.filter((attempt) => attempt.status === "fulfilled").length, 1);
+        assert.equal(attempts.filter((attempt) => attempt.status === "rejected").length, 1);
+    });
+
+    it("revokes refresh sessions after a password change", async () => {
+        const stamp = Date.now();
+        const account = await authService.signupCustomer({
+            name: "Password Test",
+            email: `password.${stamp}@example.com`,
+            password: "Beforepass1"
+        });
+
+        try {
+            await profileService.updatePassword(account.user.id, {
+                currentPassword: "Beforepass1",
+                newPassword: "Afterpass1"
+            });
+
+            await assert.rejects(
+                () => authService.refresh(account.refreshToken),
+                (error) => error.status === 401
+            );
+            const relogin = await authService.loginCustomer({
+                email: account.user.email,
+                password: "Afterpass1"
+            });
+            assert.equal(relogin.user.id, account.user.id);
+        } finally {
+            await query("DELETE FROM users WHERE id = ?", [account.user.id]);
+        }
     });
 
     it("uses decimal units and FIFO costs across purchase batches and variants", async () => {
@@ -846,6 +994,17 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
         const publicStores = await storeService.listPublicStores();
         const publicStore = publicStores.rows.find((store) => store.id === created.store.id);
         assert.equal(publicStore?.store_type, "Bakery");
+
+        const deactivated = await storeService.setStoreStatus(created.store.id, "inactive");
+        assert.equal(deactivated.store.status, "inactive");
+        assert.equal(
+            (await storeService.listPublicStores()).rows.some(
+                (store) => store.id === created.store.id
+            ),
+            false
+        );
+        const reactivated = await storeService.setStoreStatus(created.store.id, "active");
+        assert.equal(reactivated.store.status, "active");
 
         const tenantId = created.store.tenant_user_id;
         const updatedProfile = await profileService.updateAccountProfile(

@@ -6,9 +6,16 @@ const {
 } = require("../utils/http");
 const { fromQuery } = require("../utils/list");
 const { requireLogin, requireRole } = require("../middleware/auth");
-const { parseProductForm } = require("../utils/upload");
+const { parseProductForm, deleteUploadPaths, getUploadedPaths } = require("../utils/upload");
 const { CATALOG } = require("../utils/roles");
 const productService = require("../services/productService");
+
+function productImagePaths(product) {
+    return [...new Set([
+        ...(product?.images || []).map((image) => image.path),
+        product?.image_path
+    ].filter(Boolean))];
+}
 
 async function handleProductRoutes(req, res) {
     const path = getPath(req.url);
@@ -53,7 +60,15 @@ async function handleProductRoutes(req, res) {
         }
 
         const body = await parseProductForm(req, auth.tenantId);
-        const result = await productService.addProduct(auth.tenantId, body, auth.id);
+        let result;
+
+        try {
+            result = await productService.addProduct(auth.tenantId, body, auth.id);
+        } catch (error) {
+            await deleteUploadPaths(getUploadedPaths(body));
+            throw error;
+        }
+
         sendJSON(req, res, 201, result);
         return true;
     }
@@ -65,12 +80,23 @@ async function handleProductRoutes(req, res) {
             return true;
         }
 
+        const existing = await productService.getProduct(auth.tenantId, productId);
         const body = await parseProductForm(req, auth.tenantId);
-        const result = await productService.updateProduct(
-            auth.tenantId,
-            productId,
-            body
-        );
+        let result;
+
+        try {
+            result = await productService.updateProduct(
+                auth.tenantId,
+                productId,
+                body
+            );
+        } catch (error) {
+            await deleteUploadPaths(getUploadedPaths(body));
+            throw error;
+        }
+
+        const retained = new Set(productImagePaths(result.product));
+        await deleteUploadPaths(productImagePaths(existing).filter((imagePath) => !retained.has(imagePath)));
         sendJSON(req, res, 200, result);
         return true;
     }
@@ -82,7 +108,9 @@ async function handleProductRoutes(req, res) {
             return true;
         }
 
+        const existing = await productService.getProduct(auth.tenantId, productId);
         const result = await productService.deleteProduct(auth.tenantId, productId);
+        await deleteUploadPaths(productImagePaths(existing));
         sendJSON(req, res, 200, result);
         return true;
     }

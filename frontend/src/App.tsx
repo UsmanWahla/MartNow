@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Link, Navigate, Routes, Route } from "react-router-dom";
 
 const Layout = lazy(() => import("./components/store-admin/Layout"));
 const ShopLayout = lazy(() => import("./components/shop/ShopLayout"));
@@ -47,6 +47,24 @@ function RouteFallback() {
     <div className="mesh-bg grid min-h-screen place-items-center px-4">
       <div className="surface-card rounded-2xl px-5 py-4 text-sm font-semibold text-slate-600">
         Loading...
+      </div>
+    </div>
+  );
+}
+
+function NotFound() {
+  return (
+    <div className="mesh-bg grid min-h-screen place-items-center px-4">
+      <div className="surface-card max-w-md rounded-2xl p-8 text-center">
+        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-teal-700">404</p>
+        <h1 className="mt-2 text-2xl font-semibold text-slate-900">Page not found</h1>
+        <p className="mt-2 text-sm text-slate-500">The page may have moved or the address is incorrect.</p>
+        <Link
+          to="/stores"
+          className="mt-6 inline-flex rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-800"
+        >
+          Go to marketplace
+        </Link>
       </div>
     </div>
   );
@@ -114,6 +132,7 @@ function App() {
           <Route path="/reports" element={<Reports />} />
           <Route path="/settings" element={<Settings />} />
         </Route>
+        <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
     </BrowserRouter>

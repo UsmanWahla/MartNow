@@ -27,8 +27,8 @@ import {
   productImageUrl,
   deletePlatformStore,
   removePlatformStoreLogo,
-  removePlatformStore,
   savePlatformStore,
+  setPlatformStoreStatus,
 } from "../../api";
 import { upsertById, type PlatformStore, type StoreType } from "../../types";
 import {
@@ -62,7 +62,10 @@ function SuperStores() {
   const { busy, run } = useBusy();
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<PlatformStore | null>(null);
-  const [pendingDeactivate, setPendingDeactivate] = useState<PlatformStore | null>(null);
+  const [pendingStatus, setPendingStatus] = useState<{
+    store: PlatformStore;
+    status: "active" | "inactive";
+  } | null>(null);
   const [pendingDelete, setPendingDelete] = useState<PlatformStore | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [storeTypes, setStoreTypes] = useState<StoreType[]>([]);
@@ -494,11 +497,19 @@ function SuperStores() {
       header: "Action",
       render: (row) => (
         <RowMenu
-          extras={[{ label: "View details", onClick: () => navigate(`/super/stores/${row.id}`) }]}
+          extras={[
+            { label: "View details", onClick: () => navigate(`/super/stores/${row.id}`) },
+            {
+              label: row.status === "active" ? "Deactivate" : "Activate",
+              onClick: () =>
+                setPendingStatus({
+                  store: row,
+                  status: row.status === "active" ? "inactive" : "active",
+                }),
+            },
+          ]}
           onEdit={() => openEdit(row)}
-          onDelete={() =>
-            row.status === "active" ? setPendingDeactivate(row) : setPendingDelete(row)
-          }
+          onDelete={row.status === "inactive" ? () => setPendingDelete(row) : undefined}
         />
       ),
     },
@@ -540,22 +551,30 @@ function SuperStores() {
         </Modal>
       ) : null}
 
-      {pendingDeactivate ? (
+      {pendingStatus ? (
         <ConfirmModal
-          title="Deactivate store"
-          message="Hide this store from the marketplace? Inventory stays with the store admin."
-          confirmLabel="Deactivate"
+          title={pendingStatus.status === "active" ? "Activate store" : "Deactivate store"}
+          message={
+            pendingStatus.status === "active"
+              ? `Return ${pendingStatus.store.name} to the marketplace?`
+              : `Hide ${pendingStatus.store.name} from the marketplace? Inventory stays with the store admin.`
+          }
+          confirmLabel={pendingStatus.status === "active" ? "Activate" : "Deactivate"}
           loading={busy}
-          onCancel={() => setPendingDeactivate(null)}
+          onCancel={() => setPendingStatus(null)}
           onConfirm={() => {
             void run(async () => {
               try {
-                const response = await removePlatformStore(pendingDeactivate.id);
+                const response = await setPlatformStoreStatus(
+                  pendingStatus.store.id,
+                  pendingStatus.status
+                );
                 await reload();
-                setPendingDeactivate(null);
+                setPendingStatus(null);
                 showToast(response.message, "success");
               } catch (loadError) {
-                showToast(getApiError(loadError, "Unable to deactivate store"));
+                setPendingStatus(null);
+                showToast(getApiError(loadError, "Unable to change store status"));
               }
             });
           }}

@@ -41,7 +41,7 @@ function MarketLayout() {
     }`;
 
   return (
-    <div className="mesh-bg flex min-h-screen flex-col font-sans text-var(--ink)">
+    <div className="mesh-bg flex min-h-screen flex-col font-sans text-(--ink)">
       <header className="sticky top-0 z-20 border-b border-(--hairline) bg-white/90 shadow-[0_8px_24px_rgba(15,118,110,0.06)] backdrop-blur-md">
         <div className="h-1 bg-[linear-gradient(90deg,#0f766e,#2dd4bf,#0f766e)]" />
         <div className="mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-3 py-2.5 md:grid-cols-[1fr_auto_1fr] sm:px-6">

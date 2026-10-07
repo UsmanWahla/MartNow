@@ -66,43 +66,45 @@ async function updateSettings(tenantId, { shop_name, low_stock_threshold, shop_s
         throw new ServiceError(400, "Low stock threshold must be at least 1");
     }
 
-    const current = await getSettings(tenantId);
-    let nextSlug = current.shop_slug;
+    return withTransaction(async () => {
+        const current = await getSettings(tenantId);
+        let nextSlug = current.shop_slug;
 
-    if (shop_slug !== undefined) {
-        const requested = slugify(shop_slug);
+        if (shop_slug !== undefined) {
+            const requested = slugify(shop_slug);
 
-        if (requested !== current.shop_slug) {
-            nextSlug = await allocateSlug(requested, tenantId);
+            if (requested !== current.shop_slug) {
+                nextSlug = await allocateSlug(requested, tenantId);
+            }
         }
-    }
 
-    await query(
-        "UPDATE users SET shop_name = ?, low_stock_threshold = ?, shop_slug = ? WHERE id = ?",
-        [shopName || null, threshold, nextSlug, tenantId]
-    );
+        await query(
+            "UPDATE users SET shop_name = ?, low_stock_threshold = ?, shop_slug = ? WHERE id = ?",
+            [shopName || null, threshold, nextSlug, tenantId]
+        );
 
-    const store = await getStoreRow(tenantId);
+        const store = await getStoreRow(tenantId);
 
-    if (store) {
-        await query("UPDATE stores SET name = ?, shop_slug = ? WHERE tenant_user_id = ?", [
-            shopName || store.name,
-            nextSlug,
-            tenantId
-        ]);
-    }
+        if (store) {
+            await query("UPDATE stores SET name = ?, shop_slug = ? WHERE tenant_user_id = ?", [
+                shopName || store.name,
+                nextSlug,
+                tenantId
+            ]);
+        }
 
-    const settings = await getSettings(tenantId);
-    const owner = await query(
-        "SELECT id, name, email, username, role, owner_id, shop_name, shop_slug, low_stock_threshold, avatar_path FROM users WHERE id = ?",
-        [tenantId]
-    );
+        const settings = await getSettings(tenantId);
+        const owner = await query(
+            "SELECT id, name, email, username, role, owner_id, shop_name, shop_slug, low_stock_threshold, avatar_path FROM users WHERE id = ?",
+            [tenantId]
+        );
 
-    return {
-        message: "Settings saved",
-        settings,
-        user: owner[0] ? toPublicUser(owner[0]) : undefined
-    };
+        return {
+            message: "Settings saved",
+            settings,
+            user: owner[0] ? toPublicUser(owner[0]) : undefined
+        };
+    });
 }
 
 async function updateShopProfile(tenantId, data) {

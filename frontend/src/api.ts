@@ -1015,9 +1015,13 @@ export async function removePlatformStoreLogo(id: number) {
   return response.data;
 }
 
-export async function removePlatformStore(id: number) {
-  const response = await axios.delete<{ message: string }>(
-    `${API_URL}/api/super/stores/${id}`,
+export async function setPlatformStoreStatus(
+  id: number,
+  status: "active" | "inactive"
+) {
+  const response = await axios.put<{ message: string; store: PlatformStore }>(
+    `${API_URL}/api/super/stores/${id}/status`,
+    { status },
     { headers: authHeader() }
   );
   return response.data;

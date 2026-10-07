@@ -2,7 +2,7 @@ const { sendJSON, getPath, getRequestBody } = require("../utils/http");
 const { requireLogin, requireRole } = require("../middleware/auth");
 const { CATALOG, OWNER } = require("../utils/roles");
 const settingsService = require("../services/settingsService");
-const { parseStoreForm } = require("../utils/upload");
+const { parseStoreForm, deleteUploadPaths, getUploadedPaths } = require("../utils/upload");
 
 async function handleSettingsRoutes(req, res) {
     const path = getPath(req.url);
@@ -39,8 +39,21 @@ async function handleSettingsRoutes(req, res) {
             return true;
         }
 
+        const existing = await settingsService.getSettings(auth.tenantId);
         const body = await parseStoreForm(req);
-        const result = await settingsService.updateShopProfile(auth.tenantId, body);
+        let result;
+
+        try {
+            result = await settingsService.updateShopProfile(auth.tenantId, body);
+        } catch (error) {
+            await deleteUploadPaths(getUploadedPaths(body));
+            throw error;
+        }
+
+        if (existing.logo_path && existing.logo_path !== result.settings.logo_path) {
+            await deleteUploadPaths([existing.logo_path]);
+        }
+
         sendJSON(req, res, 200, result);
         return true;
     }

@@ -1,12 +1,26 @@
 const WINDOW_MS = 15 * 60 * 1000;
 const MAX_TRIES = 5;
+const MAX_ENTRIES = 10_000;
 const attempts = new Map();
+
+function pruneExpired(now) {
+    for (const [key, entry] of attempts) {
+        if (now > entry.resetAt) {
+            attempts.delete(key);
+        }
+    }
+
+    while (attempts.size >= MAX_ENTRIES) {
+        attempts.delete(attempts.keys().next().value);
+    }
+}
 
 function getEntry(key) {
     const now = Date.now();
     const entry = attempts.get(key);
 
     if (!entry || now > entry.resetAt) {
+        pruneExpired(now);
         const fresh = { count: 0, resetAt: now + WINDOW_MS };
         attempts.set(key, fresh);
         return fresh;

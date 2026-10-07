@@ -1,8 +1,21 @@
 const bcrypt = require("bcryptjs");
-const { query } = require("../utils/query");
+const { query, withTransaction } = require("../utils/query");
 const { ServiceError } = require("../utils/errors");
 const { getPasswordError, isValidUsername, normalizeUsername } = require("../utils/validation");
 const { toPublicUser } = require("./authService");
+
+async function getAccountProfile(userId) {
+    const rows = await query(
+        "SELECT id, name, email, username, role, owner_id, shop_name, shop_slug, low_stock_threshold, avatar_path FROM users WHERE id = ?",
+        [userId]
+    );
+
+    if (rows.length === 0) {
+        throw new ServiceError(404, "User not found");
+    }
+
+    return toPublicUser(rows[0]);
+}
 
 async function updateName(userId, email, name) {
     const nextName = String(name || "").trim();
@@ -65,10 +78,13 @@ async function updatePassword(userId, { currentPassword, newPassword }) {
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    await query("UPDATE users SET password = ? WHERE id = ?", [
-        hashedPassword,
-        userId
-    ]);
+    await withTransaction(async () => {
+        await query("UPDATE users SET password = ? WHERE id = ?", [
+            hashedPassword,
+            userId
+        ]);
+        await query("DELETE FROM refresh_tokens WHERE user_id = ?", [userId]);
+    });
 
     return { message: "Password updated" };
 }
@@ -149,6 +165,7 @@ async function updateAccountProfile(userId, email, data) {
 }
 
 module.exports = {
+    getAccountProfile,
     updateName,
     updatePassword,
     updateAccountProfile

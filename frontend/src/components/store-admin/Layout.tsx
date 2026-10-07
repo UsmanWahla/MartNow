@@ -5,7 +5,7 @@ import Avatar from "../shared/Avatar";
 import UserMenu from "./UserMenu";
 import ConfirmModal from "../shared/ConfirmModal";
 import { IconMenu } from "../shared/icons";
-import { clearAuth, getToken, getUser, isCustomerSession, isSuperAdmin } from "../../auth";
+import { clearAuth, getUser, hasSession, isCustomerSession, isSuperAdmin } from "../../auth";
 import { logoutAccount } from "../../api";
 import useBusy from "../../hooks/useBusy";
 import {
@@ -51,7 +51,7 @@ function Layout() {
     };
   }, []);
 
-  if (!user || !getToken()) {
+  if (!user || !hasSession()) {
     return <Navigate to="/login" replace />;
   }
 
@@ -118,7 +118,7 @@ function Layout() {
   };
 
   return (
-    <div className="mesh-bg flex h-screen overflow-hidden font-sans text-var(--ink)">
+    <div className="mesh-bg flex h-screen overflow-hidden font-sans text-(--ink)">
       <div className="hidden h-full shrink-0 md:block">
         <Sidebar onLogout={askLogout} />
       </div>

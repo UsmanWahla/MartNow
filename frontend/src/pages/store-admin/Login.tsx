@@ -36,7 +36,7 @@ function Login() {
     try {
       const response = await loginAccount({ username, password });
       clearAll();
-      saveSession(response.user, response.token);
+      saveSession(response.user);
 
       if (response.user.role === "super_admin") {
         navigate("/super", { replace: true });

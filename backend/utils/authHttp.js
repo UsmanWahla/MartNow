@@ -2,7 +2,7 @@ const { sendJSON, parseCookies, authCookies } = require("./http");
 
 function clientKey(req, email) {
     const ip = req.socket.remoteAddress || "unknown";
-    return `${ip}:${String(email || "").toLowerCase()}`;
+    return `${ip}:${String(email || "").trim().toLowerCase()}`;
 }
 
 function sendAuth(req, res, status, message, result) {

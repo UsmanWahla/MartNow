@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { IconDashboard, IconLedger, IconLogout, IconShop, IconMenu, IconTruck, IconBox, IconReport } from "../shared/icons";
 import ConfirmModal from "../shared/ConfirmModal";
-import { clearAuth, getToken, getUser, isSuperAdmin } from "../../auth";
+import { clearAuth, getUser, hasSession, isSuperAdmin } from "../../auth";
 import { logoutAccount } from "../../api";
 import useBusy from "../../hooks/useBusy";
 
@@ -23,7 +23,7 @@ function SuperLayout() {
     return () => window.removeEventListener("auth-user-changed", syncUser);
   }, []);
 
-  if (!user || !getToken()) {
+  if (!user || !hasSession()) {
     return <Navigate to="/super/login" replace />;
   }
 
@@ -123,7 +123,7 @@ function SuperLayout() {
   );
 
   return (
-    <div className="mesh-bg flex h-screen overflow-hidden font-sans text-var(--ink)">
+    <div className="mesh-bg flex h-screen overflow-hidden font-sans text-(--ink)">
       <div className="hidden h-full shrink-0 md:block">{nav}</div>
       {menuOpen ? (
         <div className="fixed inset-0 z-40 md:hidden">

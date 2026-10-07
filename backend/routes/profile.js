@@ -1,7 +1,7 @@
 const { sendJSON, getPath, getRequestBody } = require("../utils/http");
 const { requireLogin } = require("../middleware/auth");
 const profileService = require("../services/profileService");
-const { parseStoreForm } = require("../utils/upload");
+const { parseStoreForm, deleteUploadPaths, getUploadedPaths } = require("../utils/upload");
 
 async function handleProfileRoutes(req, res) {
     const path = getPath(req.url);
@@ -39,12 +39,25 @@ async function handleProfileRoutes(req, res) {
             return true;
         }
 
+        const existing = await profileService.getAccountProfile(auth.id);
         const body = await parseStoreForm(req, {
             fileFields: ["avatar"],
             uploadFolder: "avatars",
             resultField: "avatar_path"
         });
-        const result = await profileService.updateAccountProfile(auth.id, auth.email, body);
+        let result;
+
+        try {
+            result = await profileService.updateAccountProfile(auth.id, auth.email, body);
+        } catch (error) {
+            await deleteUploadPaths(getUploadedPaths(body));
+            throw error;
+        }
+
+        if (existing.avatar_path && existing.avatar_path !== result.user.avatar_path) {
+            await deleteUploadPaths([existing.avatar_path]);
+        }
+
         sendJSON(req, res, 200, result);
         return true;
     }

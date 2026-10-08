@@ -27,7 +27,8 @@ interface StoreLocationPickerProps {
   mapHeightClass?: string;
 }
 
-const DEFAULT_CENTER: [number, number] = [30.3753, 69.3451];
+const DEFAULT_CENTER: [number, number] = [33.6844, 73.0479];
+const DEFAULT_ZOOM = 15;
 
 const markerIcon = divIcon({
   className: "store-location-marker",
@@ -37,7 +38,12 @@ const markerIcon = divIcon({
 });
 
 function asCoordinate(value: string) {
-  const number = Number(value);
+  const normalizedValue = value.trim();
+  if (!normalizedValue) {
+    return null;
+  }
+
+  const number = Number(normalizedValue);
   return Number.isFinite(number) ? number : null;
 }
 
@@ -58,9 +64,16 @@ function MapPosition({
   const hasPosition = latitude != null && longitude != null;
 
   useEffect(() => {
-    if (hasPosition) {
-      map.setView([latitude!, longitude!], Math.max(map.getZoom(), 16), { animate: true });
-    }
+    const frame = requestAnimationFrame(() => {
+      map.invalidateSize({ pan: false });
+      map.setView(
+        hasPosition ? [latitude!, longitude!] : DEFAULT_CENTER,
+        hasPosition ? Math.max(map.getZoom(), 16) : DEFAULT_ZOOM,
+        { animate: hasPosition }
+      );
+    });
+
+    return () => cancelAnimationFrame(frame);
   }, [hasPosition, latitude, longitude, map]);
 
   useMapEvents({
@@ -86,6 +99,38 @@ function MapPosition({
       }}
     />
   );
+}
+
+function MapSizeInvalidator() {
+  const map = useMap();
+
+  useEffect(() => {
+    let frame: number | null = null;
+    const refresh = () => {
+      if (frame != null) {
+        cancelAnimationFrame(frame);
+      }
+
+      frame = requestAnimationFrame(() => {
+        map.invalidateSize({ pan: false });
+        frame = null;
+      });
+    };
+
+    refresh();
+
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(refresh);
+    observer?.observe(map.getContainer());
+
+    return () => {
+      if (frame != null) {
+        cancelAnimationFrame(frame);
+      }
+      observer?.disconnect();
+    };
+  }, [map]);
+
+  return null;
 }
 
 function StoreLocationPicker({
@@ -269,11 +314,12 @@ function StoreLocationPicker({
       </div>
 
       <div className="overflow-hidden rounded-xl border border-slate-200">
-        <MapContainer center={DEFAULT_CENTER} zoom={5} className={`${mapHeightClass} w-full`} scrollWheelZoom={false}>
+        <MapContainer center={DEFAULT_CENTER} zoom={DEFAULT_ZOOM} className={`${mapHeightClass} w-full`} scrollWheelZoom={false}>
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
+          <MapSizeInvalidator />
           <MapPosition latitude={latitude} longitude={longitude} onPick={updateCoordinates} />
         </MapContainer>
       </div>

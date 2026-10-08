@@ -24,6 +24,17 @@ function shopMatch(path, suffix) {
 async function handleShopRoutes(req, res) {
     const path = getPath(req.url);
 
+    if (req.method === "GET" && path === "/api/shop/active-cart") {
+        const auth = requireShopper(req, res);
+
+        if (!auth) {
+            return true;
+        }
+
+        sendJSON(req, res, 200, await shopService.getActiveCart(auth));
+        return true;
+    }
+
     const metaSlug = shopMatch(path, "");
     if (req.method === "GET" && metaSlug && !path.slice("/api/shop/".length).includes("/")) {
         const meta = await shopService.getShopMeta(metaSlug);

@@ -73,6 +73,36 @@ async function listCart(slug, auth) {
     return { items, total, shop_name: shop.shop_name };
 }
 
+async function getActiveCart(auth) {
+    const carts = await query(
+        `
+        SELECT
+            COALESCE(stores.name, owners.shop_name, owners.name, 'Shop') AS shop_name,
+            COALESCE(stores.shop_slug, owners.shop_slug) AS shop_slug,
+            SUM(cart_items.quantity) AS item_count
+        FROM cart_items
+        INNER JOIN products ON products.id = cart_items.product_id
+        INNER JOIN users AS owners ON owners.id = products.user_id
+        LEFT JOIN stores ON stores.tenant_user_id = products.user_id
+        WHERE cart_items.user_id = ?
+        GROUP BY products.user_id, stores.name, stores.shop_slug, owners.shop_name, owners.name, owners.shop_slug
+        ORDER BY MAX(cart_items.id) DESC
+        LIMIT 1
+        `,
+        [auth.id]
+    );
+
+    if (carts.length === 0) {
+        return { item_count: 0, shop_name: null, shop_slug: null };
+    }
+
+    return {
+        item_count: toNumber(carts[0].item_count),
+        shop_name: carts[0].shop_name,
+        shop_slug: carts[0].shop_slug
+    };
+}
+
 async function addToCart(slug, auth, { product_id, quantity, color, size }) {
     const shop = await getShopBySlug(slug);
     assertShopper(auth, shop);
@@ -114,47 +144,73 @@ async function addToCart(slug, auth, { product_id, quantity, color, size }) {
         throw new ServiceError(400, "Choose a size");
     }
 
-    await query(
-        `
-        DELETE cart_items FROM cart_items
-        INNER JOIN products ON products.id = cart_items.product_id
-        WHERE cart_items.user_id = ? AND products.user_id <> ?
-        `,
-        [auth.id, shop.tenantId]
-    );
+    return withTransaction(async () => {
+        // Serialise cart changes for a shopper so two concurrent add requests cannot
+        // create carts for different shops.
+        await query("SELECT id FROM users WHERE id = ? FOR UPDATE", [auth.id]);
 
-    const existing = await query(
-        `
-        SELECT id, quantity FROM cart_items
-        WHERE user_id = ? AND product_id = ? AND color = ? AND size = ?
-        `,
-        [auth.id, productId, colorName, sizeName]
-    );
-
-    const nextQty = assertSaleQuantity(
-        existing.length > 0 ? toNumber(existing[0].quantity) + qty : qty,
-        products[0].quantity_step
-    );
-    const variants = await query(
-        "SELECT stock FROM product_variants WHERE product_id = ? AND color = ? AND size = ?",
-        [productId, colorName, sizeName]
-    );
-    const available = variants.length > 0 ? toNumber(variants[0].stock) : toNumber(products[0].stock);
-
-    if (toBaseQuantity(nextQty, products[0].units_per_sale_unit) > available) {
-        throw new ServiceError(400, "Not enough stock for this option");
-    }
-
-    if (existing.length > 0) {
-        await query("UPDATE cart_items SET quantity = ? WHERE id = ?", [nextQty, existing[0].id]);
-    } else {
-        await query(
-            "INSERT INTO cart_items (user_id, product_id, quantity, color, size) VALUES (?, ?, ?, ?, ?)",
-            [auth.id, productId, nextQty, colorName, sizeName]
+        const otherShopCart = await query(
+            `
+            SELECT
+                COALESCE(stores.name, owners.shop_name, owners.name, 'another shop') AS shop_name,
+                COALESCE(stores.shop_slug, owners.shop_slug) AS shop_slug
+            FROM cart_items
+            INNER JOIN products ON products.id = cart_items.product_id
+            INNER JOIN users AS owners ON owners.id = products.user_id
+            LEFT JOIN stores ON stores.tenant_user_id = products.user_id
+            WHERE cart_items.user_id = ? AND products.user_id <> ?
+            ORDER BY cart_items.id DESC
+            LIMIT 1
+            `,
+            [auth.id, shop.tenantId]
         );
-    }
 
-    return listCart(slug, auth);
+        if (otherShopCart.length > 0) {
+            const cartShop = otherShopCart[0];
+            throw new ServiceError(
+                409,
+                `Your cart already contains products from ${cartShop.shop_name}. Complete or empty that cart before adding products from another shop.`,
+                {
+                    code: "CART_SHOP_CONFLICT",
+                    cart_shop_name: cartShop.shop_name,
+                    cart_shop_slug: cartShop.shop_slug
+                }
+            );
+        }
+
+        const existing = await query(
+            `
+            SELECT id, quantity FROM cart_items
+            WHERE user_id = ? AND product_id = ? AND color = ? AND size = ?
+            `,
+            [auth.id, productId, colorName, sizeName]
+        );
+
+        const nextQty = assertSaleQuantity(
+            existing.length > 0 ? toNumber(existing[0].quantity) + qty : qty,
+            products[0].quantity_step
+        );
+        const variants = await query(
+            "SELECT stock FROM product_variants WHERE product_id = ? AND color = ? AND size = ?",
+            [productId, colorName, sizeName]
+        );
+        const available = variants.length > 0 ? toNumber(variants[0].stock) : toNumber(products[0].stock);
+
+        if (toBaseQuantity(nextQty, products[0].units_per_sale_unit) > available) {
+            throw new ServiceError(400, "Not enough stock for this option");
+        }
+
+        if (existing.length > 0) {
+            await query("UPDATE cart_items SET quantity = ? WHERE id = ?", [nextQty, existing[0].id]);
+        } else {
+            await query(
+                "INSERT INTO cart_items (user_id, product_id, quantity, color, size) VALUES (?, ?, ?, ?, ?)",
+                [auth.id, productId, nextQty, colorName, sizeName]
+            );
+        }
+
+        return listCart(slug, auth);
+    });
 }
 
 async function updateCartItem(slug, auth, itemId, quantity) {
@@ -589,6 +645,7 @@ async function listShopperOrders(slug, auth) {
 
 module.exports = {
     listCart,
+    getActiveCart,
     addToCart,
     updateCartItem,
     removeCartItem,

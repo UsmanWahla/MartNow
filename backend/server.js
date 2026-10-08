@@ -140,7 +140,8 @@ const server = http.createServer(async (req, res) => {
     } catch (error) {
         if (error instanceof ServiceError) {
             sendJSON(req, res, error.status, {
-                message: error.message
+                message: error.message,
+                ...(error.details ? { details: error.details } : {})
             });
             return;
         }

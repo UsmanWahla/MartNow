@@ -3,6 +3,7 @@ import { API_URL, authHeader } from "./auth";
 import type { Paged } from "./hooks/useServerList";
 import {
   buildProductLedger,
+  type ActiveShopCart,
   type AdminOrder,
   type Customer,
   type CustomerAddress,
@@ -1104,6 +1105,13 @@ export async function shopLogin(
 
 export async function fetchShopCart(slug: string) {
   const response = await axios.get<ShopCart>(`${API_URL}/api/shop/${slug}/cart`, {
+    headers: authHeader(),
+  });
+  return response.data;
+}
+
+export async function fetchActiveShopCart() {
+  const response = await axios.get<ActiveShopCart>(`${API_URL}/api/shop/active-cart`, {
     headers: authHeader(),
   });
   return response.data;

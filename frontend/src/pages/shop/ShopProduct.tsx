@@ -5,6 +5,7 @@ import ShopButton from "../../components/shop/ShopButton";
 import ShopImageZoom from "../../components/shop/ShopImageZoom";
 import ShopGalleryDots from "../../components/shop/ShopGalleryDots";
 import ShopQtyStepper from "../../components/shop/ShopQtyStepper";
+import Modal from "../../components/shared/Modal";
 import { IconChevronLeft, IconExpand } from "../../components/shared/icons";
 import { addShopCartItem, fetchShopProduct, productImageUrl } from "../../api";
 import { getApiError, isShopperSession, shopLoginPath } from "../../auth";
@@ -13,6 +14,38 @@ import useBusy from "../../hooks/useBusy";
 import type { Product } from "../../types";
 import { findVariantStock, hasVariantOptions, variantLabel } from "../../variantStock";
 import { formatQuantity, productStep, saleStock, unitLabel } from "../../productUnits";
+
+interface CartConflict {
+  shopName: string;
+  shopSlug: string;
+}
+
+function getCartConflict(error: unknown): CartConflict | null {
+  if (!error || typeof error !== "object") {
+    return null;
+  }
+
+  const response = (error as { response?: { status?: number; data?: unknown } }).response;
+  if (response?.status !== 409 || !response.data || typeof response.data !== "object") {
+    return null;
+  }
+
+  const details = (response.data as { details?: unknown }).details;
+  if (!details || typeof details !== "object") {
+    return null;
+  }
+
+  const conflict = details as { code?: unknown; cart_shop_name?: unknown; cart_shop_slug?: unknown };
+  if (
+    conflict.code !== "CART_SHOP_CONFLICT" ||
+    typeof conflict.cart_shop_name !== "string" ||
+    typeof conflict.cart_shop_slug !== "string"
+  ) {
+    return null;
+  }
+
+  return { shopName: conflict.cart_shop_name, shopSlug: conflict.cart_shop_slug };
+}
 
 function ShopProduct() {
   const { slug = "", id = "" } = useParams();
@@ -27,6 +60,8 @@ function ShopProduct() {
   const [size, setSize] = useState("");
   const [optionError, setOptionError] = useState("");
   const [error, setError] = useState("");
+  const [cartConfirmationOpen, setCartConfirmationOpen] = useState(false);
+  const [cartConflict, setCartConflict] = useState<CartConflict | null>(null);
   const galleryRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -41,6 +76,8 @@ function ShopProduct() {
         setQuantity(productStep(data.product));
         setOptionError("");
         setError("");
+        setCartConfirmationOpen(false);
+        setCartConflict(null);
       } catch (loadError) {
         setError(getApiError(loadError, "Product not found"));
       }
@@ -97,9 +134,15 @@ function ShopProduct() {
           color,
           size,
         });
-        showToast("Added to cart", "success");
+        setCartConfirmationOpen(true);
         window.dispatchEvent(new Event("auth-user-changed"));
       } catch (loadError) {
+        const conflict = getCartConflict(loadError);
+        if (conflict) {
+          setCartConflict(conflict);
+          return;
+        }
+
         showToast(getApiError(loadError, "Unable to add to cart"));
       }
     });
@@ -371,6 +414,53 @@ function ShopProduct() {
         onClose={() => setZoomOpen(false)}
         onIndexChange={showImage}
       />
+      {cartConfirmationOpen ? (
+        <Modal title="Added to cart" onClose={() => setCartConfirmationOpen(false)}>
+          <p className="text-sm leading-6 text-slate-600">
+            {product.name} has been added to your cart. You can keep exploring this shop or review your cart now.
+          </p>
+          <div className="mt-5 flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end">
+            <ShopButton
+              variant="soft"
+              onClick={() => {
+                setCartConfirmationOpen(false);
+                navigate(`/shop/${slug}`);
+              }}
+            >
+              Explore shop
+            </ShopButton>
+            <ShopButton
+              onClick={() => {
+                setCartConfirmationOpen(false);
+                navigate(`/shop/${slug}/cart`);
+              }}
+            >
+              View cart
+            </ShopButton>
+          </div>
+        </Modal>
+      ) : null}
+      {cartConflict ? (
+        <Modal title="Cart belongs to another shop" onClose={() => setCartConflict(null)}>
+          <p className="text-sm leading-6 text-slate-600">
+            You already have products in <span className="font-semibold text-slate-800">{cartConflict.shopName}</span>.
+            Complete or empty that cart before adding products from another shop.
+          </p>
+          <div className="mt-5 flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end">
+            <ShopButton variant="soft" onClick={() => setCartConflict(null)}>
+              Stay here
+            </ShopButton>
+            <ShopButton
+              onClick={() => {
+                setCartConflict(null);
+                navigate(`/shop/${cartConflict.shopSlug}/cart`);
+              }}
+            >
+              View cart
+            </ShopButton>
+          </div>
+        </Modal>
+      ) : null}
     </div>
   );
 }

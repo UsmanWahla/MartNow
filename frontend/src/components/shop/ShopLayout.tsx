@@ -2,7 +2,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate, useParams } from "reac
 import { useEffect, useState } from "react";
 import { IconCart, IconShop, IconUser } from "../shared/icons";
 import { clearAuth, getUser, isShopperUser } from "../../auth";
-import { fetchShopCart, fetchShopMeta, logoutAccount } from "../../api";
+import { fetchActiveShopCart, fetchShopMeta, logoutAccount } from "../../api";
 import ShopButton from "./ShopButton";
 import ShopSearch from "./ShopSearch";
 import type { ShopMeta } from "../../types";
@@ -26,6 +26,7 @@ function ShopLayout() {
   const [shopMeta, setShopMeta] = useState<ShopMeta>(emptyShopMeta);
   const [missing, setMissing] = useState(false);
   const [cartCount, setCartCount] = useState(0);
+  const [cartSlug, setCartSlug] = useState<string | null>(null);
   const [user, setUser] = useState(getUser);
   const authPage = /\/(login|signup)\/?$/.test(location.pathname);
 
@@ -57,14 +58,18 @@ function ShopLayout() {
     async function loadCart() {
       if (!isShopperUser(user)) {
         setCartCount(0);
+        setCartSlug(null);
         return;
       }
 
       try {
-        const cart = await fetchShopCart(slug);
-        setCartCount(cart.items.reduce((sum, item) => sum + Number(item.quantity), 0));
+        const cart = await fetchActiveShopCart();
+        const itemCount = Number(cart.item_count);
+        setCartCount(itemCount);
+        setCartSlug(itemCount > 0 ? cart.shop_slug : null);
       } catch {
         setCartCount(0);
+        setCartSlug(null);
       }
     }
 
@@ -134,7 +139,7 @@ function ShopLayout() {
 
           <div className="flex items-center justify-end gap-1 sm:gap-2 md:col-start-3">
             <Link
-              to={`/shop/${slug}/cart`}
+              to={`/shop/${cartSlug || slug}/cart`}
               className="relative grid h-10 w-10 place-items-center rounded-xl text-teal-800 hover:bg-teal-50"
               aria-label="Cart"
             >

@@ -626,6 +626,12 @@ export interface ShopCart {
   shop_name?: string;
 }
 
+export interface ActiveShopCart {
+  item_count: number;
+  shop_name: string | null;
+  shop_slug: string | null;
+}
+
 export interface ShopOrder {
   id: number;
   sale_id?: number | null;

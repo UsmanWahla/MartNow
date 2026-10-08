@@ -1189,6 +1189,29 @@ describe("login, cost, profit, stock, and roles", { concurrency: 1 }, () => {
             cost_price: 25,
             stock: 3
         });
+        await shopCartService.addToCart(created.store.shop_slug, auth, {
+            product_id: product.product.id,
+            quantity: 1
+        });
+        await assert.rejects(
+            () =>
+                shopCartService.addToCart(secondStore.store.shop_slug, auth, {
+                    product_id: secondProduct.product.id,
+                    quantity: 1
+                }),
+            (error) =>
+                error.status === 409 &&
+                error.message.includes("already contains products") &&
+                error.details?.code === "CART_SHOP_CONFLICT" &&
+                error.details?.cart_shop_slug === created.store.shop_slug
+        );
+        const activeCart = await shopCartService.getActiveCart(auth);
+        assert.equal(activeCart.item_count, 1);
+        assert.equal(activeCart.shop_slug, created.store.shop_slug);
+        const retainedCart = await shopCartService.listCart(created.store.shop_slug, auth);
+        assert.equal(retainedCart.items.length, 1);
+        assert.equal(retainedCart.items[0].product_id, product.product.id);
+        await shopCartService.removeCartItem(created.store.shop_slug, auth, retainedCart.items[0].id);
         await shopCartService.addToCart(secondStore.store.shop_slug, auth, {
             product_id: secondProduct.product.id,
             quantity: 1

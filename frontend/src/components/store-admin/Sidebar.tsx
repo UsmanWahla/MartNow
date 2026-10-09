@@ -12,6 +12,7 @@ import {
   IconUdhaar,
 } from "../shared/icons";
 import { getUser } from "../../auth";
+import BrandMark from "../shared/BrandMark";
 import {
   canManagePeople,
   canManageStock,
@@ -72,13 +73,11 @@ function Sidebar({ onLogout, onNavigate }: SidebarProps) {
       style={{ background: "var(--sidebar)" }}
     >
       <div className="mb-8 flex items-center gap-3">
-        <div className="grid h-10 w-10 place-items-center rounded-xl bg-teal-600">
-          <IconBox className="h-5 w-5" />
-        </div>
+        <BrandMark size="md" />
         <div className="min-w-0">
           <h2 className="truncate text-lg font-bold tracking-wide">{shopName}</h2>
           <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-teal-200/70">
-            Ledger
+            MartNow
           </p>
         </div>
       </div>

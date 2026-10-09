@@ -5,6 +5,7 @@ import ConfirmModal from "../shared/ConfirmModal";
 import { clearAuth, getUser, hasSession, isSuperAdmin } from "../../auth";
 import { logoutAccount } from "../../api";
 import useBusy from "../../hooks/useBusy";
+import BrandMark from "../shared/BrandMark";
 
 function SuperLayout() {
   const navigate = useNavigate();
@@ -71,11 +72,9 @@ function SuperLayout() {
   const nav = (
     <aside className="flex h-full w-60 flex-col p-5 text-white" style={{ background: "var(--sidebar)" }}>
       <div className="mb-8 flex items-center gap-3">
-        <div className="grid h-10 w-10 place-items-center rounded-xl bg-teal-600">
-          <IconShop className="h-5 w-5" />
-        </div>
+        <BrandMark size="md" />
         <div className="min-w-0">
-          <h2 className="truncate text-lg font-bold tracking-wide">Platform</h2>
+          <h2 className="truncate text-lg font-bold tracking-wide">MartNow</h2>
           <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-teal-200/70">
             Super admin
           </p>

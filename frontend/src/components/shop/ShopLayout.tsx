@@ -1,8 +1,9 @@
 import { Link, NavLink, Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { IconCart, IconShop, IconUser } from "../shared/icons";
+import { IconCart, IconUser } from "../shared/icons";
+import BrandMark from "../shared/BrandMark";
 import { clearAuth, getUser, isShopperUser } from "../../auth";
-import { fetchActiveShopCart, fetchShopMeta, logoutAccount } from "../../api";
+import { fetchActiveShopCart, fetchShopMeta, logoutAccount, productImageUrl } from "../../api";
 import ShopButton from "./ShopButton";
 import ShopSearch from "./ShopSearch";
 import type { ShopMeta } from "../../types";
@@ -115,8 +116,16 @@ function ShopLayout() {
         <div className="mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-3 py-2.5 md:grid-cols-[1fr_auto_1fr] sm:px-6">
           <div className="flex min-w-0 items-center gap-1 sm:gap-2 md:col-start-1">
             <Link to={`/shop/${slug}`} className="flex min-w-0 items-center gap-2.5">
-              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-teal-700 text-white">
-                <IconShop className="h-4 w-4" />
+              <div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-xl bg-teal-50 text-sm font-semibold text-teal-800">
+                {shopMeta.logo_path ? (
+                  <img
+                    src={productImageUrl(shopMeta.logo_path)}
+                    alt=""
+                    className="h-full w-full object-contain p-0.5"
+                  />
+                ) : (
+                  shopName.slice(0, 1).toUpperCase()
+                )}
               </div>
               <p className="max-w-7rem truncate text-sm font-semibold text-slate-900 sm:max-w-12rem">
                 {shopName}
@@ -184,6 +193,15 @@ function ShopLayout() {
       <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-3 py-4 sm:px-6 sm:py-5">
         <Outlet context={{ shopName, slug, shopMeta } satisfies ShopOutlet} />
       </main>
+      <footer className="border-t border-(--hairline) bg-white/80">
+        <Link
+          to="/stores"
+          className="mx-auto flex max-w-7xl items-center justify-center gap-2 px-4 py-3 text-xs text-slate-500 hover:text-teal-800"
+        >
+          <BrandMark size="xs" />
+          <span className="font-semibold text-slate-700">MartNow</span>
+        </Link>
+      </footer>
     </div>
   );
 }

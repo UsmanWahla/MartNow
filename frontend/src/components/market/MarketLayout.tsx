@@ -1,6 +1,7 @@
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { IconShop, IconUser } from "../shared/icons";
+import { IconUser } from "../shared/icons";
+import BrandMark from "../shared/BrandMark";
 import { clearAuth, getUser, isShopperUser } from "../../auth";
 import { logoutAccount } from "../../api";
 import ShopButton from "../shop/ShopButton";
@@ -46,11 +47,9 @@ function MarketLayout() {
         <div className="h-1 bg-[linear-gradient(90deg,#0f766e,#2dd4bf,#0f766e)]" />
         <div className="mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-3 py-2.5 md:grid-cols-[1fr_auto_1fr] sm:px-6">
           <div className="flex min-w-0 items-center gap-1 sm:gap-2 md:col-start-1">
-            <Link to="/stores" className="flex min-w-0 items-center gap-2.5">
-              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-teal-700 text-white">
-                <IconShop className="h-4 w-4" />
-              </div>
-              <p className="hidden truncate text-sm font-semibold text-slate-900 lg:block">Marketplace</p>
+            <Link to="/stores" aria-label="MartNow home" className="flex min-w-0 items-center gap-2.5">
+              <BrandMark size="sm" />
+              <p className="hidden truncate text-sm font-semibold text-slate-900 sm:block">MartNow</p>
             </Link>
             <nav className="flex items-center gap-1" aria-label="Marketplace navigation">
               <NavLink to="/stores" end className={navClass}>

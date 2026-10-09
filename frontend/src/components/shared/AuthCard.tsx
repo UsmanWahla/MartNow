@@ -22,10 +22,7 @@ function AuthCard({ title, subtitle, children, footer }: AuthCardProps) {
           </div>
           <div className="relative">
             <BrandLogo />
-            <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-teal-200/80">
-              Mint Ledger
-            </p>
-            <h2 className="mt-4 text-2xl font-semibold leading-snug">
+            <h2 className="mt-6 text-2xl font-semibold leading-snug">
               Quiet tools for a busy counter.
             </h2>
           </div>
@@ -36,7 +33,7 @@ function AuthCard({ title, subtitle, children, footer }: AuthCardProps) {
 
         <div className="flex-1 bg-white p-8">
           <div className="mb-5 md:hidden">
-            <BrandLogo />
+            <BrandLogo tone="light" align="center" />
           </div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
             {title}
